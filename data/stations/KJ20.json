@@ -1,0 +1,50 @@
+{
+  "id": "KJ20",
+  "name": "Taman Jaya",
+  "line_id": "KJ",
+  "stop_id": "KJ20",
+  "levels": [
+    { "id": "L0", "name": "Street", "elevation": 0 },
+    { "id": "L1", "name": "Concourse", "elevation": 6 },
+    { "id": "L2", "name": "Platform", "elevation": 12 }
+  ],
+  "zones": [
+    { "id": "entrance", "name": "Street entrance", "level": "L0", "type": "entrance",
+      "polygon": [[16, 6], [32, 6], [32, 16], [16, 16]], "capacity": 60 },
+    { "id": "ticketing", "name": "Ticket hall", "level": "L1", "type": "ticketing",
+      "polygon": [[14, 3], [34, 3], [34, 17], [14, 17]], "capacity": 120 },
+    { "id": "concourse", "name": "Concourse", "level": "L1", "type": "concourse",
+      "polygon": [[34, 3], [62, 3], [62, 17], [34, 17]], "capacity": 200 },
+    { "id": "platform-1", "name": "Platform 1", "level": "L2", "type": "platform",
+      "polygon": [[4, 0], [76, 0], [76, 5], [4, 5]], "capacity": 250, "direction_id": 0 },
+    { "id": "platform-2", "name": "Platform 2", "level": "L2", "type": "platform",
+      "polygon": [[4, 15], [76, 15], [76, 20], [4, 20]], "capacity": 250, "direction_id": 1 }
+  ],
+  "links": [
+    { "id": "entry-a", "name": "Entrance A", "type": "entrance", "from": "outside", "to": "entrance",
+      "position": [16, 11], "level": "L0" },
+    { "id": "esc-a", "name": "Escalator A", "type": "escalator", "from": "entrance", "to": "ticketing",
+      "position": [26, 11], "level": "L0" },
+    { "id": "gate-main", "name": "Main fare gates", "type": "faregate", "from": "ticketing", "to": "concourse",
+      "position": [34, 10], "level": "L1" },
+    { "id": "stairs-p1", "name": "Stairs to Platform 1", "type": "stairs", "from": "concourse", "to": "platform-1",
+      "position": [48, 4], "level": "L1" },
+    { "id": "stairs-p2", "name": "Stairs to Platform 2", "type": "stairs", "from": "concourse", "to": "platform-2",
+      "position": [48, 16], "level": "L1" }
+  ],
+  "sensors": [
+    { "device_id": "esp32-01", "sensor_id": "entry-a", "kind": "crossing", "link": "entry-a" },
+    { "device_id": "esp32-01", "sensor_id": "esc-a", "kind": "crossing", "link": "esc-a" },
+    { "device_id": "esp32-01", "sensor_id": "gate-main", "kind": "crossing", "link": "gate-main" },
+    { "device_id": "esp32-01", "sensor_id": "sw-esc-a", "kind": "switch", "link": "esc-a" },
+    { "device_id": "esp32-01", "sensor_id": "env-concourse", "kind": "environment", "zone": "concourse" },
+    { "device_id": "esp32-02", "sensor_id": "stairs-p1", "kind": "crossing", "link": "stairs-p1" },
+    { "device_id": "esp32-02", "sensor_id": "stairs-p2", "kind": "crossing", "link": "stairs-p2" },
+    { "device_id": "esp32-02", "sensor_id": "train-p1", "kind": "train", "zone": "platform-1" },
+    { "device_id": "esp32-02", "sensor_id": "train-p2", "kind": "train", "zone": "platform-2" }
+  ],
+  "tracks": [
+    { "direction_id": 0, "y": 7.5, "level": "L2", "x_from": -40, "x_to": 120 },
+    { "direction_id": 1, "y": 12.5, "level": "L2", "x_from": -40, "x_to": 120 }
+  ]
+}

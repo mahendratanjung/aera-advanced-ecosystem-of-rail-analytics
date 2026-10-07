@@ -1,0 +1,135 @@
+@import "tailwindcss";
+@import "../styles/theme.css";
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-2: var(--accent-2);
+  --color-accent-2-soft: var(--accent-2-soft);
+  --color-highlight: var(--highlight);
+  --color-highlight-soft: var(--highlight-soft);
+  --color-line: var(--line-kj);
+  --color-crowd-empty: var(--crowd-empty);
+  --color-critical: var(--status-critical);
+  --color-serious: var(--status-serious);
+  --color-warning: var(--status-warning);
+  --color-good: var(--status-good);
+  --font-sans: var(--type-body);
+  --radius-sign: var(--radius-sm);
+  --radius-card: var(--radius);
+  --shadow-card: var(--shadow-md);
+  --shadow-soft: var(--shadow-sm);
+  --shadow-float: var(--shadow-lg);
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--type-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--paper);
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Times and counts never shift as digits change */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.display {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-raised {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  border: 1px solid color-mix(in srgb, var(--rule) 70%, transparent);
+}
+
+.pressable {
+  transition: transform var(--motion-fast) var(--ease), background-color var(--motion-fast) var(--ease), box-shadow var(--motion-fast) var(--ease);
+}
+.pressable:active {
+  transform: scale(0.98);
+}
+
+.hero-gradient {
+  background:
+    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--accent-2) 55%, transparent) 0%, transparent 55%),
+    linear-gradient(135deg, #1d4ed8 0%, var(--accent) 55%, #3b82f6 100%);
+  color: #ffffff;
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.enter {
+  animation: fade-up var(--motion-slow) var(--ease) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .enter { animation: none; }
+}
+
+/* MapLibre controls in the house style */
+.maplibregl-ctrl-group {
+  background: var(--surface) !important;
+  border: 1px solid var(--rule) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-sm) !important;
+  overflow: hidden;
+}
+.maplibregl-ctrl-group button + button { border-top-color: var(--rule) !important; }
+.maplibregl-ctrl-attrib {
+  background: color-mix(in srgb, var(--surface) 85%, transparent) !important;
+  color: var(--ink-3) !important;
+  font-size: 10px;
+}
+.maplibregl-ctrl-attrib a { color: var(--ink-2) !important; }

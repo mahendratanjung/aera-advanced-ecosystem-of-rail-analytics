@@ -1,0 +1,121 @@
+/*
+ * AERA design tokens. The only place colours, type, radii, shadows and motion are defined.
+ *
+ * Direction: a bright, modern transit app. White canvas, soft elevated cards, transit blue as
+ * the primary colour with cyan and orange accents, the line's own red for line identity, and
+ * a five-step crowding scale (green to deep red) that is always paired with a label and icon.
+ * The crowding scale passes the colour-vision and normal-vision separation checks.
+ */
+
+:root {
+  --paper: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f4f6fb;
+  --surface-3: #eaeef6;
+  --rule: #e6eaf2;
+  --rule-strong: #cfd6e3;
+  --ink: #0e1726;
+  --ink-2: #475569;
+  --ink-3: #64748b;
+
+  --accent: #2563eb;
+  --accent-ink: #ffffff;
+  --accent-soft: #eaf1ff;
+  --accent-2: #0891b2;
+  --accent-2-soft: #e3f6fa;
+  --highlight: #f97316;
+  --highlight-soft: #fff1e6;
+  --focus: #2563eb;
+  --line-kj: #d50032;
+
+  /* Crowding: fills, soft chip backgrounds and chip text */
+  --crowd-1: #10b981;
+  --crowd-2: #fbbf24;
+  --crowd-3: #f97316;
+  --crowd-4: #e11d48;
+  --crowd-5: #7f1d1d;
+  --crowd-1-soft: #d1fae5;
+  --crowd-2-soft: #fef3c7;
+  --crowd-3-soft: #ffedd5;
+  --crowd-4-soft: #ffe4e6;
+  --crowd-5-soft: #fde2e2;
+  --crowd-1-ink: #065f46;
+  --crowd-2-ink: #854d0e;
+  --crowd-3-ink: #9a3412;
+  --crowd-4-ink: #9f1239;
+  --crowd-5-ink: #7f1d1d;
+  --crowd-empty: #e6eaf2;
+
+  /* Status: reserved meaning, always with an icon and a label */
+  --status-critical: #dc2626;
+  --status-serious: #f97316;
+  --status-warning: #f59e0b;
+  --status-good: #16a34a;
+
+  /* Map */
+  --map-bg: #f3f5f9;
+  --map-land: #f3f5f9;
+  --map-water: #cfe3f5;
+  --map-road: #ffffff;
+  --map-label: #7b8799;
+  --map-station: #ffffff;
+  --map-building: #dfe5ee;
+  --map-viaduct: #c3ccd8;
+  --map-sky: #cfe6ff;
+  --map-horizon: #f4f8fd;
+  --map-fog: #eef2f8;
+  /* The 3D map is lit by the sim clock: these are its night and sunset colours. The rest of
+     the app stays white. */
+  --map-land-night: #121b2d;
+  --map-water-night: #0c2442;
+  --map-road-night: #24324b;
+  --map-label-night: #8796b0;
+  --map-building-night: #2a3750;
+  --map-viaduct-night: #4b5873;
+  --map-station-night: #ffe7b0;
+  --map-sky-night: #0a1226;
+  --map-horizon-night: #1c2a49;
+  --map-fog-night: #131d33;
+  --map-ink-night: #e7eef9;
+  --map-halo-night: #0f1729;
+  --map-sky-dusk: #8eaee0;
+  --map-horizon-dusk: #f7b98b;
+  --map-fog-dusk: #ecd6c9;
+  --map-underground: #0b1428;
+
+  /* Kelana Jaya Line Innovia Metro 300 livery, for the 3D train (map and cards) */
+  --train-body: #eef1f5;
+  --train-blue: #22348f;
+  --train-red: #d6202e;
+  --train-glass: #16202f;
+  --train-glow: #ffe2a8;
+  --train-under: #2a303b;
+  --train-roof-kit: #c9cfd8;
+  --train-head: #fffbe6;
+  --train-tail: #ff3347;
+
+  /* Type */
+  --type-body: var(--font-jakarta), "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Shape and elevation */
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.04);
+  --shadow-md: 0 4px 16px -4px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.05);
+  --shadow-lg: 0 16px 40px -12px rgba(16, 24, 40, 0.18);
+
+  /* Motion */
+  --motion-fast: 160ms;
+  --motion-base: 240ms;
+  --motion-slow: 480ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  color-scheme: light;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
+}

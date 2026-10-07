@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "DisplayCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "line1": {
+          "maxLength": 21,
+          "title": "Line1",
+          "type": "string"
+        },
+        "line2": {
+          "maxLength": 21,
+          "title": "Line2",
+          "type": "string"
+        }
+      },
+      "required": [
+        "line1",
+        "line2"
+      ],
+      "title": "DisplayCommand",
+      "type": "object"
+    },
+    "LedCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "zone": {
+          "title": "Zone",
+          "type": "string"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "moderate",
+                "busy",
+                "crowded"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "nodata",
+                "off"
+              ],
+              "type": "string"
+            }
+          ],
+          "title": "Level"
+        }
+      },
+      "required": [
+        "zone",
+        "level"
+      ],
+      "title": "LedCommand",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Published by the twin on aera/v1/{station}/{device}/cmd.",
+  "properties": {
+    "v": {
+      "const": 1,
+      "title": "V",
+      "type": "integer"
+    },
+    "ts": {
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    },
+    "leds": {
+      "items": {
+        "$ref": "#/$defs/LedCommand"
+      },
+      "title": "Leds",
+      "type": "array"
+    },
+    "display": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DisplayCommand"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "v",
+    "ts"
+  ],
+  "title": "Command",
+  "type": "object",
+  "$id": "https://aera.dev/contracts/v1/command.schema.json"
+}

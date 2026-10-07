@@ -1,0 +1,52 @@
+{
+  "additionalProperties": false,
+  "description": "Retained on aera/v1/{station}/{device}/status. The last will publishes state offline.",
+  "properties": {
+    "v": {
+      "const": 1,
+      "title": "V",
+      "type": "integer"
+    },
+    "state": {
+      "enum": [
+        "online",
+        "offline"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "fw": {
+      "anyOf": [
+        {
+          "maxLength": 32,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fw"
+    },
+    "ts": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ts"
+    }
+  },
+  "required": [
+    "v",
+    "state"
+  ],
+  "title": "Status",
+  "type": "object",
+  "$id": "https://aera.dev/contracts/v1/status.schema.json"
+}

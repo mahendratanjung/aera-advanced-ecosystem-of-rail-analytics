@@ -1,0 +1,343 @@
+{
+  "$defs": {
+    "LevelDef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "elevation": {
+          "title": "Elevation",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "elevation"
+      ],
+      "title": "LevelDef",
+      "type": "object"
+    },
+    "LinkDef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "type": {
+          "enum": [
+            "entrance",
+            "faregate",
+            "stairs",
+            "escalator",
+            "lift",
+            "walkway"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "to": {
+          "title": "To",
+          "type": "string"
+        },
+        "position": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Level"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "from",
+        "to",
+        "position"
+      ],
+      "title": "LinkDef",
+      "type": "object"
+    },
+    "SensorDef": {
+      "additionalProperties": false,
+      "properties": {
+        "device_id": {
+          "title": "Device Id",
+          "type": "string"
+        },
+        "sensor_id": {
+          "title": "Sensor Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "crossing",
+            "environment",
+            "switch",
+            "train"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "link": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Link"
+        },
+        "zone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zone"
+        }
+      },
+      "required": [
+        "device_id",
+        "sensor_id",
+        "kind"
+      ],
+      "title": "SensorDef",
+      "type": "object"
+    },
+    "TrackDef": {
+      "additionalProperties": false,
+      "properties": {
+        "direction_id": {
+          "title": "Direction Id",
+          "type": "integer"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        },
+        "level": {
+          "title": "Level",
+          "type": "string"
+        },
+        "x_from": {
+          "title": "X From",
+          "type": "number"
+        },
+        "x_to": {
+          "title": "X To",
+          "type": "number"
+        }
+      },
+      "required": [
+        "direction_id",
+        "y",
+        "level",
+        "x_from",
+        "x_to"
+      ],
+      "title": "TrackDef",
+      "type": "object"
+    },
+    "ZoneDef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "level": {
+          "title": "Level",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "entrance",
+            "ticketing",
+            "faregate",
+            "concourse",
+            "circulation",
+            "platform"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "polygon": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "minItems": 3,
+          "title": "Polygon",
+          "type": "array"
+        },
+        "capacity": {
+          "exclusiveMinimum": 0,
+          "title": "Capacity",
+          "type": "integer"
+        },
+        "direction_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction Id"
+        },
+        "public": {
+          "default": true,
+          "title": "Public",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "level",
+        "type",
+        "polygon",
+        "capacity"
+      ],
+      "title": "ZoneDef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "line_id": {
+      "title": "Line Id",
+      "type": "string"
+    },
+    "stop_id": {
+      "title": "Stop Id",
+      "type": "string"
+    },
+    "orientation_deg": {
+      "default": 0,
+      "title": "Orientation Deg",
+      "type": "number"
+    },
+    "levels": {
+      "items": {
+        "$ref": "#/$defs/LevelDef"
+      },
+      "minItems": 1,
+      "title": "Levels",
+      "type": "array"
+    },
+    "zones": {
+      "items": {
+        "$ref": "#/$defs/ZoneDef"
+      },
+      "minItems": 1,
+      "title": "Zones",
+      "type": "array"
+    },
+    "links": {
+      "items": {
+        "$ref": "#/$defs/LinkDef"
+      },
+      "title": "Links",
+      "type": "array"
+    },
+    "sensors": {
+      "items": {
+        "$ref": "#/$defs/SensorDef"
+      },
+      "title": "Sensors",
+      "type": "array"
+    },
+    "tracks": {
+      "items": {
+        "$ref": "#/$defs/TrackDef"
+      },
+      "title": "Tracks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "line_id",
+    "stop_id",
+    "levels",
+    "zones"
+  ],
+  "title": "StationDefinition",
+  "type": "object",
+  "$id": "https://aera.dev/contracts/v1/station-definition.schema.json"
+}

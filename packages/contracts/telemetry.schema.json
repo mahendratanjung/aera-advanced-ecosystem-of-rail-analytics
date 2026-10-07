@@ -1,0 +1,94 @@
+{
+  "$defs": {
+    "Reading": {
+      "additionalProperties": false,
+      "properties": {
+        "sensor_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Sensor Id",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 32,
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "sensor_id",
+        "type",
+        "value"
+      ],
+      "title": "Reading",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Published every ten seconds on aera/v1/{station}/{device}/telemetry.",
+  "properties": {
+    "v": {
+      "const": 1,
+      "title": "V",
+      "type": "integer"
+    },
+    "seq": {
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "ts": {
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    },
+    "readings": {
+      "items": {
+        "$ref": "#/$defs/Reading"
+      },
+      "maxItems": 32,
+      "title": "Readings",
+      "type": "array"
+    },
+    "rssi": {
+      "anyOf": [
+        {
+          "maximum": 0,
+          "minimum": -120,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rssi"
+    },
+    "uptime_s": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Uptime S"
+    }
+  },
+  "required": [
+    "v",
+    "seq",
+    "ts"
+  ],
+  "title": "Telemetry",
+  "type": "object",
+  "$id": "https://aera.dev/contracts/v1/telemetry.schema.json"
+}

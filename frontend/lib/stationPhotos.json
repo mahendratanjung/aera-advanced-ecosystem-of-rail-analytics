@@ -1,0 +1,298 @@
+{
+  "KJ1": {
+    "src": "/stations/KJ1.jpg",
+    "page": "https://en.wikipedia.org/wiki/Gombak_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Gombak_LRT_Station_(211031).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ2": {
+    "src": "/stations/KJ2.jpg",
+    "page": "https://en.wikipedia.org/wiki/Taman_Melati_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Taman_Melati_LRT_Station_structure_(211031).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ3": {
+    "src": "/stations/KJ3.jpg",
+    "page": "https://en.wikipedia.org/wiki/Wangsa_Maju_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Wangsa_Maju_LRT_Station_(211031).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ4": {
+    "src": "/stations/KJ4.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Sri_Rampai_LRT_Station.jpg",
+    "file": "https://commons.wikimedia.org/wiki/File:Sri_Rampai_LRT_Station.jpg",
+    "author": "WPSamson",
+    "license": "Public domain",
+    "licenseUrl": null
+  },
+  "KJ5": {
+    "src": "/stations/KJ5.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Setiawangsa_LRT_Station_platform_(211210).jpg",
+    "file": "https://commons.wikimedia.org/wiki/File:Setiawangsa_LRT_Station_platform_(211210).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ6": {
+    "src": "/stations/KJ6.jpg",
+    "page": "https://en.wikipedia.org/wiki/Jelatek_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:KJ6_Jelatek_LRT_Platforms_20231216_104320.jpg",
+    "author": "Wiki Farazi",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "KJ7": {
+    "src": "/stations/KJ7.jpg",
+    "page": "https://en.wikipedia.org/wiki/Dato'_Keramat_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Dato_Keramat_LRT.jpg",
+    "author": "Superfast1111",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ8": {
+    "src": "/stations/KJ8.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Damai_LRT_Station_platform_(220527).jpg",
+    "file": "https://commons.wikimedia.org/wiki/File:Damai_LRT_Station_platform_(220527).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ9": {
+    "src": "/stations/KJ9.jpg",
+    "page": "https://en.wikipedia.org/wiki/Ampang_Park_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:KJ9_Ampang_Park_LRT_North_Entrance_20230828_141625.jpg",
+    "author": "Wiki Farazi",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "KJ10": {
+    "src": "/stations/KJ10.jpg",
+    "page": "https://en.wikipedia.org/wiki/KLCC_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:KLCC_LRT_Station_platform_(211031).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ11": {
+    "src": "/stations/KJ11.jpg",
+    "page": "https://en.wikipedia.org/wiki/Kampung_Baru_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Kampung_Baru_LRT_Station_(Co-opbank_Pertama)_platform_(250318)_04.jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ12": {
+    "src": "/stations/KJ12.jpg",
+    "page": "https://en.wikipedia.org/wiki/Dang_Wangi_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Dang_Wangi_LRT_station_(cropped).jpg",
+    "author": "Sergei Gussev",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0"
+  },
+  "KJ13": {
+    "src": "/stations/KJ13.jpg",
+    "page": "https://en.wikipedia.org/wiki/Masjid_Jamek_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:LRT_Masjid_Jamek_Station_2.jpg",
+    "author": "Brownc",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ14": {
+    "src": "/stations/KJ14.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Pasar_Seni_LRT_Station_platform_(211210).jpg",
+    "file": "https://commons.wikimedia.org/wiki/File:Pasar_Seni_LRT_Station_platform_(211210).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ15": {
+    "src": "/stations/KJ15.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:KL_Sentral_LRT_Station_platform_(211110).jpg",
+    "file": "https://commons.wikimedia.org/wiki/File:KL_Sentral_LRT_Station_platform_(211110).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ16": {
+    "src": "/stations/KJ16.jpg",
+    "page": "https://en.wikipedia.org/wiki/Bangsar_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:BankRakyat_-_Bangsar.JPG",
+    "author": "Superfast1111",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ17": {
+    "src": "/stations/KJ17.jpg",
+    "page": "https://en.wikipedia.org/wiki/Abdullah_Hukum_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Abdullah_Hukum_Station_(220709).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ18": {
+    "src": "/stations/KJ18.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Kerinchi_station_(Kelana_Jaya_Line),_Kuala_Lumpur.jpg",
+    "file": "https://commons.wikimedia.org/wiki/File:Kerinchi_station_(Kelana_Jaya_Line),_Kuala_Lumpur.jpg",
+    "author": "User:Two hundred percent",
+    "license": "CC BY-SA 2.5",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.5"
+  },
+  "KJ19": {
+    "src": "/stations/KJ19.jpg",
+    "page": "https://en.wikipedia.org/wiki/Universiti_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:KJ19_Universiti_LRT_Exterior_20251219_114829.jpg",
+    "author": "Wiki Farazi",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "KJ20": {
+    "src": "/stations/KJ20.jpg",
+    "page": "https://en.wikipedia.org/wiki/Taman_Jaya_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Taman_Jaya_LRT_Station_(211110).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ21": {
+    "src": "/stations/KJ21.jpg",
+    "page": "https://en.wikipedia.org/wiki/Asia_Jaya_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Asia_Jaya_LRT_Station_outview_(211127).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ22": {
+    "src": "/stations/KJ22.jpg",
+    "page": "https://en.wikipedia.org/wiki/Taman_Paramount_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Taman_Paramount_LRT_Station_entrance_(220408)_01.jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ23": {
+    "src": "/stations/KJ23.jpg",
+    "page": "https://en.wikipedia.org/wiki/Taman_Bahagia_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Taman_Bahagia_LRT_Station_outview_(220708)_02.jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ24": {
+    "src": "/stations/KJ24.jpg",
+    "page": "https://en.wikipedia.org/wiki/Kelana_Jaya_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Kelana_Jaya_LRT_Station_outview_(220708)_01.jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ25": {
+    "src": "/stations/KJ25.jpg",
+    "page": "https://en.wikipedia.org/wiki/Lembah_Subang_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:KJ_Line_Lembah_Subang_Overall_View_5.jpg",
+    "author": "Slleong",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "KJ26": {
+    "src": "/stations/KJ26.jpg",
+    "page": "https://en.wikipedia.org/wiki/Ara_Damansara_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Ara_Damansara_LRT_Station.jpg",
+    "author": "Khairul hazim",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ27": {
+    "src": "/stations/KJ27.jpg",
+    "page": "https://en.wikipedia.org/wiki/Glenmarie_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:KJ_Line_Glenmarie_LRT_Station_outview_(220708)_03.jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ28": {
+    "src": "/stations/KJ28.jpg",
+    "page": "https://en.wikipedia.org/wiki/Subang_Jaya_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Subang_Jaya_station_outview_(220108).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ29": {
+    "src": "/stations/KJ29.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:KJ_Line_SS15_Overall_View_1.jpg",
+    "file": "https://commons.wikimedia.org/wiki/File:KJ_Line_SS15_Overall_View_1.jpg",
+    "author": "Slleong",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "KJ30": {
+    "src": "/stations/KJ30.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:KJ_Line_SS_18_LRT_Station_Overall_View_1.jpg",
+    "file": "https://commons.wikimedia.org/wiki/File:KJ_Line_SS_18_LRT_Station_Overall_View_1.jpg",
+    "author": "Slleong",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "KJ31": {
+    "src": "/stations/KJ31.jpg",
+    "page": "https://en.wikipedia.org/wiki/USJ_7_station",
+    "file": "https://commons.wikimedia.org/wiki/File:BRT_USJ7_halt_and_LRT_USJ7_stn.JPG",
+    "author": "Sirap bandung",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ32": {
+    "src": "/stations/KJ32.jpg",
+    "page": "https://en.wikipedia.org/wiki/Taipan_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:KJ_Line_Taipan_LRT_Station_1.jpg",
+    "author": "Wiki Farazi",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en"
+  },
+  "KJ33": {
+    "src": "/stations/KJ33.jpg",
+    "page": "https://en.wikipedia.org/wiki/Wawasan_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Wawasan_LRT_Station_platform_level_(211104)_01.jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ34": {
+    "src": "/stations/KJ34.jpg",
+    "page": "https://en.wikipedia.org/wiki/USJ_21_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:USJ_21_LRT_Station_platform_level_(211104)_01.jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ35": {
+    "src": "/stations/KJ35.jpg",
+    "page": "https://en.wikipedia.org/wiki/Alam_Megah_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Alam_Megah_LRT_Station_platform_level_(211104)_01.jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ36": {
+    "src": "/stations/KJ36.jpg",
+    "page": "https://en.wikipedia.org/wiki/Subang_Alam_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Subang_Alam_LRT_Station_platform_level_(211104)_01.jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "KJ37": {
+    "src": "/stations/KJ37.jpg",
+    "page": "https://en.wikipedia.org/wiki/Putra_Heights_LRT_station",
+    "file": "https://commons.wikimedia.org/wiki/File:Putra_Heights_LRT_Station_outview_(211104).jpg",
+    "author": "*angys*",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0"
+  }
+}

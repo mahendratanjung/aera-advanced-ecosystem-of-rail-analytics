@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "description": "Published on aera/v1/{station}/{device}/event the moment a crossing happens.",
+  "properties": {
+    "v": {
+      "const": 1,
+      "title": "V",
+      "type": "integer"
+    },
+    "seq": {
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "ts": {
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    },
+    "sensor_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Sensor Id",
+      "type": "string"
+    },
+    "type": {
+      "const": "crossing",
+      "title": "Type",
+      "type": "string"
+    },
+    "direction": {
+      "enum": [
+        "in",
+        "out"
+      ],
+      "title": "Direction",
+      "type": "string"
+    },
+    "count": {
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "v",
+    "seq",
+    "ts",
+    "sensor_id",
+    "type",
+    "direction",
+    "count"
+  ],
+  "title": "CrossingEvent",
+  "type": "object",
+  "$id": "https://aera.dev/contracts/v1/crossing-event.schema.json"
+}

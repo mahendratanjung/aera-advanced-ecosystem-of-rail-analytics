@@ -1,0 +1,27 @@
+[project]
+name = "aera-twin-service"
+version = "0.1.0"
+description = "AERA twin service: ingestion, occupancy engine, alert rules and simulator"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.142",
+  "uvicorn[standard]>=0.54",
+  "pydantic>=2.13",
+  "pydantic-settings>=2.15",
+  "pyjwt>=2.15",
+  "aiomqtt>=2.5",
+  "httpx>=0.28",
+]
+
+[dependency-groups]
+dev = ["pytest>=9.1", "pytest-asyncio>=1.4"]
+# Only needed to rebuild the crowding model from data.gov.my files.
+data = ["pandas>=2.3", "pyarrow>=21", "numpy>=2.3"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]
+
+[tool.uv]
+package = false

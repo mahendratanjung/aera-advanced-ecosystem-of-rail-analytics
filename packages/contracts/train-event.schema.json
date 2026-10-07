@@ -1,0 +1,47 @@
+{
+  "additionalProperties": false,
+  "description": "A model train detected at a platform sensor.",
+  "properties": {
+    "v": {
+      "const": 1,
+      "title": "V",
+      "type": "integer"
+    },
+    "seq": {
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "ts": {
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    },
+    "sensor_id": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Sensor Id",
+      "type": "string"
+    },
+    "type": {
+      "const": "train",
+      "title": "Type",
+      "type": "string"
+    },
+    "present": {
+      "title": "Present",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "v",
+    "seq",
+    "ts",
+    "sensor_id",
+    "type",
+    "present"
+  ],
+  "title": "TrainEvent",
+  "type": "object",
+  "$id": "https://aera.dev/contracts/v1/train-event.schema.json"
+}
