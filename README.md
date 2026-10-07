@@ -35,6 +35,13 @@ simulator drives Taman Jaya until hardware is connected. Outside service hours (
 06:00 KL time) the line is empty. Start at a busier time with `AERA_SIM_START=17:30 npm run dev`,
 or use the scenario director.
 
+The detailed 3D city (modelled trees, landmarks such as the Petronas Towers, lit windows at night)
+comes from Mapbox. Put a public Mapbox token in `frontend/.env.local` as
+`NEXT_PUBLIC_MAPBOX_TOKEN=pk...` (see `frontend/.env.example`). It is free up to 50,000 map loads
+a month. Without a token, or if Mapbox refuses it, the map falls back to the free Carto basemap
+with plain extruded buildings. Before deploying, restrict the token to your site's URL in the
+Mapbox account so nobody else can use up the free quota.
+
 Staff sign in at `/login` with the development accounts:
 
 | Account | Role | Password |

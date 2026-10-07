@@ -47,7 +47,13 @@ station-zone features are **parked** (team decision, 7 Oct 2026), not deleted.
   buttons right, crowding key bottom right. One card at a time (My station / station / train):
   desktop left column 400 px, phones a bottom sheet (peek/half/full) above the tab bar. The
   top bar is hidden on `/`. Selection lives in the URL (`/?station=KJ15`, `/?train=<trip>`).
-- 3D map: tilted MapLibre camera, translucent extruded buildings from the Carto tiles, grey
+- Basemap (user's choice, 8 Oct 2026, to match Mini Tokyo 3D): **Mapbox GL v3 + Mapbox
+  Standard** when `NEXT_PUBLIC_MAPBOX_TOKEN` is set in `frontend/.env.local` (3D trees,
+  landmarks, windowed facades, shadows; `lightPreset` dawn/day/dusk/night follows the sim sun;
+  terrain off; POI/transit/road labels off). Free tier is 50k map loads/month; the user wants
+  it to stay free, so never add anything that creates extra maps. No token or a refused token
+  falls back to MapLibre + Carto automatically (`createMap` in `GeoMap.tsx`).
+- 3D map: tilted camera, translucent extruded buildings from the Carto tiles (fallback only), grey
   viaduct with a line-red stripe (translucent ribbon in the tunnel, `TUNNEL_M` approx.), white
   platform slabs. Trains are instanced three.js meshes in a MapLibre custom layer
   (`trainLayer.ts`) on left-hand tracks, sized up to a minimum on-screen size when zoomed out.
@@ -89,6 +95,7 @@ Invariants:
   against `frontend/lib/sim/__fixtures__/positions.json` (regenerate from Python if the
   algorithm changes).
 - Zustand selectors must not return fresh `[]`/`{}`; use `NO_DISRUPTIONS` / `NO_LINKS`.
+- `TrainLayer.render` accepts both MapLibre's projection data and Mapbox's raw matrix.
 - MapLibre v6 worker is served from `public/maplibre/` (copied by `postinstall`) and set with
   `setWorkerUrl`.
 
@@ -116,6 +123,9 @@ Dev logins: admin@aera.dev / aera-admin, operator@aera.dev / aera-operator.
 - Delivery 4 (map is the app, `docs/AERA_UX_V2.md`) done: full-screen map, floating chrome,
   station photos, Innovia train model, search, shareable URLs. Checked in headless Chrome at
   1440 px and an emulated 390 px phone; 14 frontend tests and build passing.
+- Map switched to Mapbox Standard (8 Oct 2026), checked in headless Chrome at 1440 px by day,
+  at night and with a refused token (falls back to Carto); 53 backend + 14 frontend tests and
+  build passing. Not yet checked on a phone (Standard is heavier than Carto).
 - Open decisions: crowding on roof/skirt vs whole-car tint; photo licences for the pitch
   video; TRAIN-04 beacons for delayed trains (feed has no per-train delay);
   crowding thresholds/wording; per-car split is modelled not measured;
@@ -125,6 +135,12 @@ Dev logins: admin@aera.dev / aera-admin, operator@aera.dev / aera-operator.
 ## Session log
 
 Newest first. One short entry per chat: date, what changed, anything left unfinished.
+
+- **2026-10-08** Basemap moved to Mapbox Standard (user's token in `frontend/.env.local`) for
+  Mini Tokyo 3D-level detail: Petronas Towers landmark, trees, facades, lit windows at night.
+  Our viaduct, platforms, labels and three.js trains sit on top unchanged; MapLibre + Carto
+  remain as the no-token fallback. Open: phone performance, restrict the token to the
+  deployed URL before going live.
 
 - **2026-10-07** Rethought the requirements against Mini Tokyo 3D (`docs/AERA_UX_V2.md`) and
   rebuilt the live page as a full-screen map: floating search/clock/status/buttons, one card

@@ -118,18 +118,18 @@ a {
   .enter { animation: none; }
 }
 
-/* MapLibre controls in the house style */
-.maplibregl-ctrl-group {
+/* Map controls (MapLibre and Mapbox) in the house style */
+.maplibregl-ctrl-group, .mapboxgl-ctrl-group {
   background: var(--surface) !important;
   border: 1px solid var(--rule) !important;
   border-radius: 12px !important;
   box-shadow: var(--shadow-sm) !important;
   overflow: hidden;
 }
-.maplibregl-ctrl-group button + button { border-top-color: var(--rule) !important; }
-.maplibregl-ctrl-attrib {
+.maplibregl-ctrl-group button + button, .mapboxgl-ctrl-group button + button { border-top-color: var(--rule) !important; }
+.maplibregl-ctrl-attrib, .mapboxgl-ctrl-attrib {
   background: color-mix(in srgb, var(--surface) 85%, transparent) !important;
   color: var(--ink-3) !important;
   font-size: 10px;
 }
-.maplibregl-ctrl-attrib a { color: var(--ink-2) !important; }
+.maplibregl-ctrl-attrib a, .mapboxgl-ctrl-attrib a { color: var(--ink-2) !important; }

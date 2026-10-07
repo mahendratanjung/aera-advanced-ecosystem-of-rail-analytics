@@ -6,6 +6,7 @@ import { TopBar } from "@/components/TopBar";
 import { BRAND } from "@/lib/brand";
 import { RealtimeProvider } from "@/lib/realtime";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "mapbox-gl/dist/mapbox-gl.css";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-jakarta" });

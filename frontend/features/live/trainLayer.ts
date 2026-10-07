@@ -1,6 +1,6 @@
 /**
- * Trains as real 3D models on the map, drawn by three.js inside a MapLibre custom layer
- * (the technique Mini Tokyo 3D uses). Every car is the Kelana Jaya Line's Innovia Metro 300
+ * Trains as real 3D models on the map, drawn by three.js inside a custom map layer (the
+ * technique Mini Tokyo 3D uses; works in Mapbox and MapLibre). Every car is the Kelana Jaya Line's Innovia Metro 300
  * (features/train3d/innovia.ts): silver body, blue doors and cab surround, red and blue
  * stripes, windscreen, bogies, head and tail lamps. The roof and skirt carry the car's own
  * predicted crowding, so the train keeps its livery and still reads at whole-line zoom.
@@ -154,10 +154,12 @@ export class TrainLayer implements CustomLayerInterface {
     this.map = null;
   }
 
-  render(gl: WebGL2RenderingContext | WebGLRenderingContext, args: CustomRenderMethodInput) {
+  /** MapLibre passes its projection data; Mapbox passes the Mercator matrix itself. */
+  render(gl: WebGL2RenderingContext | WebGLRenderingContext, args: CustomRenderMethodInput | ArrayLike<number>) {
     const r = this.renderer;
     if (!r) return;
-    this.camera.projectionMatrix.fromArray(args.defaultProjectionData.mainMatrix as unknown as number[]).multiply(this.local);
+    const matrix = "defaultProjectionData" in args ? args.defaultProjectionData.mainMatrix : args;
+    this.camera.projectionMatrix.fromArray(Array.from(matrix as ArrayLike<number>)).multiply(this.local);
     r.resetState();
     r.setViewport(0, 0, gl.drawingBufferWidth / r.getPixelRatio(), gl.drawingBufferHeight / r.getPixelRatio());
     r.render(this.scene, this.camera);

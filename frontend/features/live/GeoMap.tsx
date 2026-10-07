@@ -10,6 +10,12 @@
  * mode dims the surface to bring the tunnel forward. A selected train can be followed,
  * chased from behind or orbited. Hovering a train or station shows a card.
  *
+ * With a Mapbox token the basemap is Mapbox Standard, the same 3D city Mini Tokyo 3D uses:
+ * modelled trees, landmarks and windowed facades, shadows, and dawn/day/dusk/night light
+ * presets that follow the sim sun. Without a token, or if Mapbox refuses it, the map falls
+ * back to the free Carto basemap with plain extruded buildings. Both engines take the same
+ * custom layers, so the line and the trains are drawn identically.
+ *
  * The map fills the screen (MAP-01). Its switches live in the UI store and its buttons float
  * over it (LiveView), which drives it through `mapApi`. `inset` keeps the selection clear of
  * the card or bottom sheet that covers part of the map (MAP-05).
@@ -31,14 +37,59 @@ import { TrackFrame, carPoses, dimsAt, stationFeatures, trackFeatures, travelSig
 import { type TrainDraw, TrainLayer } from "./trainLayer";
 
 const STYLE_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
+const STYLE_STANDARD = "mapbox://styles/mapbox/standard";
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 const CREDIT = "Timetable © Prasarana GTFS, ridership data.gov.my";
+
+type Engine = "mapbox" | "maplibre";
+
+/** Mapbox Standard, quietened: our own station labels replace its transit and POI labels. */
+const STANDARD_CONFIG = {
+  lightPreset: "day", show3dObjects: true, show3dTrees: true, show3dLandmarks: true, show3dFacades: true,
+  showPointOfInterestLabels: false, showTransitLabels: false, showRoadLabels: false, showPedestrianRoads: false,
+};
+
+type LightPreset = "dawn" | "day" | "dusk" | "night";
+
+function lightPreset(dl: Daylight): LightPreset {
+  if (dl.night > 0.75) return "night";
+  if (dl.night > 0.2 || dl.dusk > 0.45) return dl.phase === "Dawn" ? "dawn" : "dusk";
+  return "day";
+}
+
+/** Mapbox calls the Map API shares with MapLibre; only the basemap settings differ. */
+type MapboxExtras = { setConfigProperty(importId: string, key: string, value: unknown): void; setTerrain(t: null): void };
+
+/** Null when `alive()` turns false while the library loads: every Mapbox map counts as a billed load. */
+async function createMap(engine: Engine, container: HTMLElement, line: LineData, alive: () => boolean): Promise<MlMap | null> {
+  const view = { container, bounds: lineBounds(line), fitBoundsOptions: { padding: padding() }, maxPitch: 78 };
+  if (engine === "mapbox") {
+    const mb = (await import("mapbox-gl")).default;
+    if (!alive()) return null;
+    const map = new mb.Map({
+      ...view, accessToken: MAPBOX_TOKEN, style: STYLE_STANDARD, config: { basemap: STANDARD_CONFIG },
+      // Custom layers draw in Web Mercator, so no globe.
+      projection: "mercator", antialias: true, customAttribution: CREDIT,
+    });
+    return map as unknown as MlMap;
+  }
+  const ml = await import("maplibre-gl");
+  if (!alive()) return null;
+  ml.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
+  return new ml.Map({
+    ...view, style: STYLE_LIGHT,
+    attributionControl: { compact: true, customAttribution: CREDIT },
+    canvasContextAttributes: { antialias: true },
+  });
+}
 
 function fallbackStyle(): StyleSpecification {
   return { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": token("--map-bg") } }] };
 }
 
 /** An upright font the basemap already serves (water labels use italics). */
-function labelFont(map: MlMap): string[] | null {
+function labelFont(map: MlMap, engine: Engine): string[] | null {
+  if (engine === "mapbox") return ["DIN Pro Medium", "Arial Unicode MS Regular"];
   let any: string[] | null = null;
   for (const layer of map.getStyle().layers ?? []) {
     if (layer.type !== "symbol") continue;
@@ -103,7 +154,11 @@ function addBuildings(map: MlMap) {
   });
 }
 
-function extrusion(id: string, source: string, filter: unknown[], color: unknown, opacity: number) {
+/**
+ * `glow` (Mapbox only) is how much of the colour shows regardless of Standard's light preset,
+ * so the line stripe and platforms still read at night.
+ */
+function extrusion(id: string, source: string, filter: unknown[], color: unknown, opacity: number, glow?: unknown) {
   return {
     id, type: "fill-extrusion" as const, source, filter: filter as never,
     paint: {
@@ -112,6 +167,7 @@ function extrusion(id: string, source: string, filter: unknown[], color: unknown
       "fill-extrusion-height": ["get", "top"] as never,
       "fill-extrusion-opacity": opacity,
       "fill-extrusion-vertical-gradient": true,
+      ...(glow == null ? {} : { "fill-extrusion-emissive-strength": glow }),
     },
   };
 }
@@ -146,6 +202,7 @@ export function GeoMap({ line, engine, selected, onSelect, selectedTrain, onSele
   const box = useRef<HTMLDivElement>(null);
   const tip = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
+  const engineRef = useRef<Engine>("maplibre");
   const layerRef = useRef<TrainLayer | null>(null);
   const paintStations = useRef<() => void>(() => {});
   const relight = useRef<() => void>(() => {});
@@ -170,25 +227,30 @@ export function GeoMap({ line, engine, selected, onSelect, selectedTrain, onSele
     if (!box.current || mapRef.current) return;
     let cancelled = false;
     let unsub = () => {};
-    (async () => {
-      const ml = await import("maplibre-gl");
+    const start = async (engine: Engine) => {
       if (cancelled || !box.current) return;
-      ml.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
-      const map = new ml.Map({
-        container: box.current,
-        style: STYLE_LIGHT,
-        bounds: lineBounds(line),
-        fitBoundsOptions: { padding: padding() },
-        attributionControl: { compact: true, customAttribution: CREDIT },
-        maxPitch: 78,
-        canvasContextAttributes: { antialias: true },
-      });
+      const map = await createMap(engine, box.current, line, () => !cancelled);
+      if (!map) return;
       mapRef.current = map;
+      engineRef.current = engine;
+      const standard = engine === "mapbox";
+      const mb = standard ? (map as unknown as MapboxExtras) : null;
       map.on("rotate", () => cb.current.onBearing?.(map.getBearing()));
+      let loaded = false;
       let fellBack = false;
       map.on("error", (e) => {
-        const err = e.error as (Error & { url?: string }) | undefined;
-        if (!fellBack && String(err?.url ?? err?.message ?? "").includes("style.json")) {
+        const err = e.error as (Error & { url?: string; status?: number }) | undefined;
+        const where = String(err?.url ?? err?.message ?? "");
+        if (standard && !loaded && !fellBack && (err?.status === 401 || err?.status === 403 || where.includes("/styles/v1/"))) {
+          // Token missing, refused or over its quota: carry on with the free basemap.
+          fellBack = true;
+          console.warn("Mapbox basemap unavailable, using the Carto basemap:", err?.message);
+          setTimeout(() => {
+            map.remove();
+            if (mapRef.current === map) mapRef.current = null;
+            void start("maplibre");
+          });
+        } else if (!standard && !fellBack && where.includes("style.json")) {
           fellBack = true;
           map.setStyle(fallbackStyle());
         }
@@ -200,9 +262,16 @@ export function GeoMap({ line, engine, selected, onSelect, selectedTrain, onSele
         });
       }
       map.on("style.load", () => {
-        const targets: BasemapTarget[] = quietBasemap(map);
+        loaded = true;
+        // Standard's terrain lifts the ground under a whole-line view; the line is drawn at sea level.
+        mb?.setTerrain(null);
+        const targets: BasemapTarget[] = standard ? [] : quietBasemap(map);
         const palettes = new Palettes();
         let palette: Palette = palettes.at(0, 0);
+        // Mapbox lights our extrusions with its own presets, so they keep their day colours there.
+        const dayPalette = palette;
+        let solid = palette;
+        let preset: LightPreset = "day";
         const cam0 = map.cameraForBounds(coreBounds(line), { padding: padding() });
         if (cam0) map.jumpTo({ ...cam0, zoom: (cam0.zoom ?? 12) + 0.9, ...VIEW_3D });
 
@@ -221,25 +290,27 @@ export function GeoMap({ line, engine, selected, onSelect, selectedTrain, onSele
         });
 
         const trackColour = (viaduct: string): ExpressionSpecification => ["match", ["get", "kind"], "stripe", colour, viaduct];
-        const trackLayer = (id: string, ug: boolean, opacity: number) => extrusion(id, "aera-track", ["==", ["get", "ug"], ug], trackColour(palette.viaduct), opacity);
+        const trackGlow = standard ? ["match", ["get", "kind"], "stripe", 0.9, 0.15] : undefined;
+        const platformGlow = standard ? 0.6 : undefined;
+        const trackLayer = (id: string, ug: boolean, opacity: number) => extrusion(id, "aera-track", ["==", ["get", "ug"], ug], trackColour(palette.viaduct), opacity, trackGlow);
         map.addLayer({ id: "aera-ug-dim", type: "background", paint: { "background-color": token("--map-underground"), "background-opacity": 0 } });
         map.addLayer(trackLayer("aera-track-ug", true, 0.45));
-        map.addLayer(extrusion("aera-platforms-ug", "aera-platforms", ["==", ["get", "ug"], true], palette.station, 0.7));
+        map.addLayer(extrusion("aera-platforms-ug", "aera-platforms", ["==", ["get", "ug"], true], palette.station, 0.7, platformGlow));
         map.addLayer(trackLayer("aera-track", false, 1));
-        map.addLayer(extrusion("aera-platforms", "aera-platforms", ["==", ["get", "ug"], false], palette.station, 1));
+        map.addLayer(extrusion("aera-platforms", "aera-platforms", ["==", ["get", "ug"], false], palette.station, 1, platformGlow));
         const layer = new TrainLayer(frame);
         layerRef.current = layer;
         map.addLayer(layer);
         addBuildings(map);
-        const font = labelFont(map);
+        const font = labelFont(map, engine);
         if (font) {
           map.addLayer({ id: "aera-station-labels", type: "symbol", source: "aera-stations", minzoom: 11.5,
             layout: { "text-field": ["get", "name"], "text-font": font, "text-size": ["interpolate", ["linear"], ["zoom"], 11, 12, 15, 14.5], "text-offset": [1.2, 0], "text-anchor": "left" },
-            paint: { "text-color": palette.ink, "text-halo-color": palette.halo, "text-halo-width": 2 } });
+            paint: { "text-color": palette.ink, "text-halo-color": palette.halo, "text-halo-width": 2, ...(standard ? { "text-emissive-strength": 1 } : {}) } as never });
         }
 
         paintStations.current = () => {
-          const c: ExpressionSpecification = ["case", ["==", ["get", "id"], live.current.station ?? ""], token("--accent"), palette.station];
+          const c: ExpressionSpecification = ["case", ["==", ["get", "id"], live.current.station ?? ""], token("--accent"), solid.station];
           for (const l of STATION_LAYERS) if (map.getLayer(l)) map.setPaintProperty(l, "fill-extrusion-color", c);
         };
 
@@ -249,17 +320,27 @@ export function GeoMap({ line, engine, selected, onSelect, selectedTrain, onSele
           if (Math.abs(dl.night - lit.night) < 0.015 && Math.abs(dl.dusk - lit.dusk) < 0.03 && Math.abs(sun.azimuth - lit.az) < 2) return;
           lit = { night: dl.night, dusk: dl.dusk, az: sun.azimuth };
           palette = palettes.at(dl.night, dl.dusk);
-          paintBasemap(map, targets, palette);
-          map.setSky({
-            "sky-color": palette.sky, "horizon-color": palette.horizon, "fog-color": palette.fog,
-            "sky-horizon-blend": 0.6, "horizon-fog-blend": 0.8, "fog-ground-blend": 0.6, "atmosphere-blend": 0,
-          });
-          const warm = dl.dusk > 0.5 ? "#ffeedd" : dl.night > 0.5 ? "#c4cdff" : "#ffffff";
-          map.setLight({
-            anchor: "map", color: warm, intensity: 0.42 - 0.2 * dl.night,
-            position: [1.3, sun.altitude > 0 ? sun.azimuth : 200, Math.min(80, Math.max(15, 90 - sun.altitude))],
-          });
-          for (const id of ["aera-track", "aera-track-ug"]) map.setPaintProperty(id, "fill-extrusion-color", trackColour(palette.viaduct));
+          if (mb) {
+            solid = dayPalette;
+            const next = lightPreset(dl);
+            if (next !== preset) {
+              preset = next;
+              mb.setConfigProperty("basemap", "lightPreset", next);
+            }
+          } else {
+            solid = palette;
+            paintBasemap(map, targets, palette);
+            map.setSky({
+              "sky-color": palette.sky, "horizon-color": palette.horizon, "fog-color": palette.fog,
+              "sky-horizon-blend": 0.6, "horizon-fog-blend": 0.8, "fog-ground-blend": 0.6, "atmosphere-blend": 0,
+            });
+            const warm = dl.dusk > 0.5 ? "#ffeedd" : dl.night > 0.5 ? "#c4cdff" : "#ffffff";
+            map.setLight({
+              anchor: "map", color: warm, intensity: 0.42 - 0.2 * dl.night,
+              position: [1.3, sun.altitude > 0 ? sun.azimuth : 200, Math.min(80, Math.max(15, 90 - sun.altitude))],
+            });
+          }
+          for (const id of ["aera-track", "aera-track-ug"]) map.setPaintProperty(id, "fill-extrusion-color", trackColour(solid.viaduct));
           if (map.getLayer("aera-buildings")) map.setPaintProperty("aera-buildings", "fill-extrusion-color", palette.building);
           if (map.getLayer("aera-station-labels")) {
             // Underground mode darkens the map, so labels take their night colours.
@@ -405,7 +486,8 @@ export function GeoMap({ line, engine, selected, onSelect, selectedTrain, onSele
         };
         setReady(true);
       });
-    })();
+    };
+    void start(MAPBOX_TOKEN ? "mapbox" : "maplibre");
     return () => {
       cancelled = true;
       unsub();
@@ -466,7 +548,10 @@ export function GeoMap({ line, engine, selected, onSelect, selectedTrain, onSele
 
   useEffect(() => {
     const map = mapRef.current;
-    if (ready && map?.getLayer("aera-buildings")) map.setLayoutProperty("aera-buildings", "visibility", is3d && !underground ? "visible" : "none");
+    if (!ready || !map) return;
+    const show = is3d && !underground;
+    if (engineRef.current === "mapbox") (map as unknown as MapboxExtras).setConfigProperty("basemap", "show3dObjects", show);
+    else if (map.getLayer("aera-buildings")) map.setLayoutProperty("aera-buildings", "visibility", show ? "visible" : "none");
   }, [ready, is3d, underground]);
 
   // Tilt only when the 3D switch changes; the map already opens in 3D.
