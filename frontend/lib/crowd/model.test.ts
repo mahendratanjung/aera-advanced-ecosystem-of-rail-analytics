@@ -69,3 +69,17 @@ test("typical day has no service at night and peaks in the morning towards the c
   const best = day.indexOf(Math.max(...day.map((x) => x ?? 0)));
   assert.ok(best >= 7 && best <= 9, String(best));
 });
+
+test("an extra train relieves the scheduled train behind it", () => {
+  const t = kl(8, 0);
+  const runs = engine.runs(0, t - 600, t + 1800, [], 1);
+  const r = runs[3];
+  const hw = engine.headway(0, r.trip.start)!;
+  const insert = { id: "x", kind: "insert" as const, stop_id: "KJ37", to_stop_id: null, direction_id: 0, delay_s: 0,
+    start_ms: (r.trip.start - hw / 2) * 1000, end_ms: null, note: "", multiplier: 1 };
+  const withExtra = engine.runs(0, t - 600, t + 1800, [insert], 1);
+  const after = withExtra.find((x) => x.trip.id === r.trip.id)!;
+  assert.ok(withExtra.some((x) => x.trip.id.includes("-x")), "the extra trip runs");
+  const k = 20;
+  assert.ok(after.legs[k] < r.legs[k] * 0.85, `${after.legs[k]} vs ${r.legs[k]}`);
+});

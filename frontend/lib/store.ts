@@ -6,9 +6,11 @@
  */
 
 import { create } from "zustand";
+import { setCrowdBounds } from "./crowd/levels";
+import type { ObservedLoad } from "./crowd/observed";
 import type {
-  Alert, AuditEntry, Command, Device, EnvReading, Incident, LinkState, Ripple, SimState, StationSummary,
-  TwinState, User, ZoneState,
+  Alert, AuditEntry, Command, Device, EnvReading, Incident, LinkState, LiveFeedStatus, Notice, Ripple, SimState,
+  StationSummary, TwinState, User, ZoneState,
 } from "./types";
 
 export type ConnStatus = "connecting" | "live" | "stale" | "offline";
@@ -19,7 +21,7 @@ interface TwinStore {
   offsetMs: number;
   hasSnapshot: boolean;
   sim: SimState | null;
-  settings: { thresholds: { moderate: number; busy: number; crowded: number }; train_capacity: number; heartbeat_s: number } | null;
+  settings: PublicSettings | null;
   stations: Record<string, StationSummary>;
   twins: Record<string, TwinState>;
   devices: Record<string, Device>;
@@ -32,6 +34,9 @@ interface TwinStore {
   user: User | null;
   ripples: Ripple[];
   boarding: Record<string, { alighted: number; boarded: number; at: number }>;
+  /** Crowding riders and train sensors observed, fused per trip by the service. */
+  observed: Record<string, ObservedLoad>;
+  liveFeed: LiveFeedStatus | null;
   setStatus: (s: ConnStatus) => void;
   apply: (msg: Record<string, unknown>) => void;
 }
@@ -40,7 +45,9 @@ const MAX_RIPPLES = 40;
 
 /** Stable empty values for selectors. A fresh [] each call makes zustand re-render forever. */
 export const NO_DISRUPTIONS: SimState["disruptions"] = [];
+export const NO_NOTICES: Notice[] = [];
 export const NO_LINKS: LinkState[] = [];
+export const NO_OBSERVED: Record<string, ObservedLoad> = {};
 
 function upsertZones(twin: TwinState | undefined, zones: ZoneState[]): TwinState | undefined {
   if (!twin) return twin;
@@ -54,6 +61,14 @@ function upsertLinks(twin: TwinState | undefined, links: LinkState[]): TwinState
   const byId = new Map(twin.links.map((l) => [l.id, l]));
   for (const l of links) byId.set(l.id, l);
   return { ...twin, links: Array.from(byId.values()) };
+}
+
+type PublicSettings = { thresholds: { moderate: number; busy: number; crowded: number }; train_capacity: number; heartbeat_s: number; crowd_levels?: number[] };
+
+/** The crowding thresholds an admin set apply everywhere from the next render (ADM-03). */
+function applySettings(s: PublicSettings | null): PublicSettings | null {
+  setCrowdBounds(s?.crowd_levels);
+  return s;
 }
 
 export const useTwin = create<TwinStore>((set, get) => ({
@@ -75,6 +90,8 @@ export const useTwin = create<TwinStore>((set, get) => ({
   user: null,
   ripples: [],
   boarding: {},
+  observed: NO_OBSERVED,
+  liveFeed: null,
   setStatus: (status) => set({ status }),
   apply: (msg) => {
     const now = Date.now();
@@ -87,7 +104,7 @@ export const useTwin = create<TwinStore>((set, get) => ({
           hasSnapshot: true,
           offsetMs: m.server_now_ms - now,
           sim: m.sim,
-          settings: m.settings,
+          settings: applySettings(m.settings),
           stations: Object.fromEntries(m.stations.map((s: StationSummary) => [s.id, s])),
           twins: m.twins,
           devices: Object.fromEntries(m.devices.map((d: Device) => [d.id, d])),
@@ -97,6 +114,8 @@ export const useTwin = create<TwinStore>((set, get) => ({
           ingest: m.ingest ?? null,
           bus: m.bus,
           user: m.user,
+          observed: m.crowd_observed ?? NO_OBSERVED,
+          liveFeed: m.live_feed ?? null,
         });
         return;
       }
@@ -145,7 +164,7 @@ export const useTwin = create<TwinStore>((set, get) => ({
         return;
       }
       case "settings":
-        set({ ...base, settings: (msg as any).settings });
+        set({ ...base, settings: applySettings((msg as any).settings) });
         return;
       case "alert": {
         const a = (msg as { alert: Alert }).alert;
@@ -185,6 +204,12 @@ export const useTwin = create<TwinStore>((set, get) => ({
         set((s) => ({ ...base, boarding: { ...s.boarding, [m.zone_id]: { alighted: m.alighted, boarded: m.boarded, at: now } } }));
         return;
       }
+      case "crowd_observed":
+        set({ ...base, observed: (msg as { trips: Record<string, ObservedLoad> }).trips });
+        return;
+      case "live_feed":
+        set({ ...base, liveFeed: (msg as { feed: LiveFeedStatus }).feed });
+        return;
       default:
         set(base);
     }

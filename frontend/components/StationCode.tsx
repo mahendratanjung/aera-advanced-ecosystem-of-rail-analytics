@@ -11,7 +11,8 @@ export function StationCode({ id, size = "md" }: { id: string; size?: "sm" | "md
 }
 
 const LINE_COLOUR: Record<string, string> = {
-  AG: "#e57200", SP: "#76232f", KG: "#047940", PY: "#f4c400", MR: "#6ba539", SA: "#2aa8d1", KTM: "#1964b7", ERL: "#6b2c91",
+  AG: "var(--line-ag)", SP: "var(--line-sp)", KG: "var(--line-kg)", PY: "var(--line-py)", MR: "var(--line-mr)", SA: "var(--line-sa)",
+  KTM: "var(--line-k1)", ERL: "var(--line-e6)",
 };
 
 /** Interchanges with each line's own colour dot and code. */

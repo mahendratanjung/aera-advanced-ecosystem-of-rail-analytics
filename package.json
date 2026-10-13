@@ -7,11 +7,16 @@
     "dev": "concurrently -k -n twin,web -c cyan,blue \"npm:dev:twin\" \"npm:dev:web\"",
     "dev:twin": "cd backend && uv run uvicorn aera_twin.main:app --reload --port 8000",
     "dev:web": "cd frontend && npm run dev",
-    "test": "cd backend && uv run --group data pytest -q && cd ../frontend && npm test",
+    "test": "cd backend && uv run --group data pytest -q && uv run python -m pytest -q ../edge/tests && cd ../frontend && npm test",
+    "lint": "cd backend && uv run ruff check . && uv run ruff check --config pyproject.toml ../edge",
     "typecheck": "cd frontend && npm run typecheck",
+    "check": "npm run lint && npm test && npm run typecheck",
     "import:gtfs": "cd backend && uv run python -m aera_twin.gtfs.importer --route KJ",
+    "import:network": "cd backend && uv run python -m aera_twin.gtfs.network",
+    "import:trains": "cd backend && uv run python -m aera_twin.gtfs.trains",
     "contracts": "cd backend && uv run python -m aera_twin.contracts",
     "model": "cd backend && uv run --group data python -m aera_twin.ridership.build",
+    "model:network": "cd backend && uv run --group data python -m aera_twin.ridership.network",
     "photos": "cd frontend && node scripts/fetch-station-photos.mjs"
   },
   "devDependencies": {

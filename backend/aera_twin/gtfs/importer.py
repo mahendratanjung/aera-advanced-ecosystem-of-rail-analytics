@@ -16,7 +16,7 @@ import io
 import json
 import math
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -235,7 +235,7 @@ def build_line(tables: dict[str, list[dict[str, str]]], route_id: str) -> dict:
         "source": {
             "name": "Prasarana Rapid Rail KL GTFS Static, via data.gov.my",
             "url": FEED_URL,
-            "imported_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "imported_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "fallbacks": {
                 "straight_segments": used_shape_fallback,
                 "estimated_run_times": used_time_fallback,

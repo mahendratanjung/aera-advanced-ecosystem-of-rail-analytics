@@ -44,7 +44,7 @@ export interface LineData {
 
 export interface Disruption {
   id: string;
-  kind: "delay" | "hold" | "suspend" | "surge";
+  kind: "delay" | "hold" | "suspend" | "surge" | "insert";
   stop_id: string;
   to_stop_id: string | null;
   direction_id: number | null;
@@ -67,6 +67,27 @@ export interface SimState {
   clock: ClockState;
   scenario: { id: string; name: string; started_ms: number; demand_mult: number };
   disruptions: Disruption[];
+  /** Notices operators publish to riders (ROLE-03). */
+  notices?: Notice[];
+}
+
+/** The operator's live train-position feed (GTFS Realtime), checked by the twin service. */
+export interface LiveFeedStatus {
+  url: string;
+  state: "checking" | "unavailable" | "live" | "error";
+  detail: string;
+  checked_ms: number | null;
+  last_live_ms: number | null;
+  vehicles: number;
+}
+
+export interface Notice {
+  id: string;
+  text: string;
+  severity: "info" | "warning";
+  start_ms: number;
+  end_ms: number | null;
+  by: string;
 }
 
 export interface StationSummary {

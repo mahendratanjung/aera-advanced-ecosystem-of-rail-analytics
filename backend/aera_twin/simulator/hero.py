@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from aera_twin.engine.occupancy import OccupancyEngine
 from aera_twin.station import StationModel
@@ -23,7 +23,7 @@ DWELL_OUT = {"platform": 20.0, "concourse": 25.0, "ticketing": 15.0, "entrance":
 
 
 def iso(ms: int) -> str:
-    return datetime.fromtimestamp(ms / 1000, timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return datetime.fromtimestamp(ms / 1000, UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
 def poisson(rng: random.Random, lam: float) -> int:

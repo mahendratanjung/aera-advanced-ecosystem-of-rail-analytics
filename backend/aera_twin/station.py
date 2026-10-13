@@ -21,7 +21,7 @@ class StationModel:
         self.id = definition.id
 
     @classmethod
-    def from_file(cls, path: Path) -> "StationModel":
+    def from_file(cls, path: Path) -> StationModel:
         raw = json.loads(path.read_text())
         return cls(StationDefinition.model_validate(raw), raw)
 

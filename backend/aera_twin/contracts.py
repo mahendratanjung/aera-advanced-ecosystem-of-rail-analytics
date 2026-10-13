@@ -62,6 +62,37 @@ class TrainEvent(_Strict):
     present: bool
 
 
+class CarCount(_Strict):
+    """How full one car is, from an in-train sensor. Published on aera/v1/train/{device}/count.
+
+    ``method`` says what measured it: an on-board camera counting people, door beam counters
+    (boardings minus alightings) or the suspension's load-weigh signal. Send ``count``
+    (people) or ``load_pct`` (percent of the car's capacity), not both. Name the train with
+    ``trip_id`` when the device knows it, otherwise with the station it last stopped at and
+    its direction; the service matches that to the train in the timetable.
+    """
+
+    v: Literal[1]
+    seq: int = Field(ge=0)
+    ts: datetime
+    method: Literal["camera", "door_counter", "load_weigh"]
+    car: int = Field(ge=1, le=4)
+    count: int | None = Field(default=None, ge=0, le=600)
+    load_pct: float | None = Field(default=None, ge=0, le=250)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    trip_id: str | None = Field(default=None, min_length=1, max_length=64)
+    station_id: str | None = Field(default=None, min_length=1, max_length=16)
+    direction_id: Literal[0, 1] | None = None
+
+    @model_validator(mode="after")
+    def _one_measure_and_a_train(self) -> CarCount:
+        if (self.count is None) == (self.load_pct is None):
+            raise ValueError("send exactly one of count or load_pct")
+        if self.trip_id is None and (self.station_id is None or self.direction_id is None):
+            raise ValueError("name the train with trip_id, or with station_id and direction_id")
+        return self
+
+
 class Reading(_Strict):
     sensor_id: str = Field(min_length=1, max_length=64)
     type: str = Field(min_length=1, max_length=32)
@@ -151,7 +182,7 @@ class SensorDef(_Strict):
     zone: str | None = None
 
     @model_validator(mode="after")
-    def _target(self) -> "SensorDef":
+    def _target(self) -> SensorDef:
         if self.kind == "crossing" and not self.link:
             raise ValueError("crossing sensors need a link")
         if self.kind in ("environment", "train") and not self.zone:
@@ -190,7 +221,7 @@ class StationDefinition(_Strict):
         return zones
 
     @model_validator(mode="after")
-    def _references(self) -> "StationDefinition":
+    def _references(self) -> StationDefinition:
         levels = {lv.id for lv in self.levels}
         zones = {z.id for z in self.zones} | {"outside"}
         links = {lk.id for lk in self.links}
@@ -216,6 +247,7 @@ EXPORTS: dict[str, type[BaseModel]] = {
     "crossing-event": CrossingEvent,
     "switch-event": SwitchEvent,
     "train-event": TrainEvent,
+    "car-count": CarCount,
     "telemetry": Telemetry,
     "status": Status,
     "command": Command,

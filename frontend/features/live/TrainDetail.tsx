@@ -2,11 +2,13 @@
 
 import { ArrowsClockwise, Crosshair, VideoCamera, X } from "@phosphor-icons/react/dist/ssr";
 import { type ReactNode, useEffect, useState } from "react";
-import { CrowdMeter, CrowdTag } from "@/components/Crowd";
+import { CrowdIcon, CrowdMeter, CrowdTag } from "@/components/Crowd";
 import { TrainView } from "@/features/train3d/TrainView";
-import { crowdOf, pctText } from "@/lib/crowd/levels";
+import { ApiError, api } from "@/lib/api";
+import { CROWD, type CrowdLevel, crowdOf, crowdSoftVar, pctText } from "@/lib/crowd/levels";
 import { type LiveTrain, latest, subscribe } from "@/lib/crowd/feed";
 import type { CrowdEngine } from "@/lib/crowd/model";
+import { describeSources, deviceId } from "@/lib/crowd/observed";
 import { klTime } from "@/lib/format";
 import { useReducedMotion } from "@/lib/hooks";
 import type { LineData } from "@/lib/types";
@@ -15,7 +17,7 @@ import { ShareButton } from "./StationCard";
 import { bestCar } from "./StationBoard";
 
 /** Camera viewpoints for the selected train, as in Mini Tokyo 3D's tracking mode. */
-function CameraModes() {
+export function CameraModes() {
   const cam = useUi((s) => s.cam);
   const setCam = useUi((s) => s.setCam);
   const reduced = useReducedMotion();
@@ -33,6 +35,48 @@ function CameraModes() {
         </button>
       ))}
     </div>
+  );
+}
+
+type ReportState = { kind: "idle" | "sending" | "sent" | "error"; level?: CrowdLevel; text?: string };
+
+/** Riders on the train say how full it is; the service fuses reports with sensor counts. */
+function ReportCrowding({ tripId }: { tripId: string }) {
+  const [state, setState] = useState<ReportState>({ kind: "idle" });
+  useEffect(() => setState({ kind: "idle" }), [tripId]);
+
+  async function send(level: CrowdLevel) {
+    setState({ kind: "sending", level });
+    try {
+      await api("/crowd/reports", { method: "POST", json: { device: deviceId(), trip_id: tripId, level } });
+      setState({ kind: "sent", level });
+    } catch (e) {
+      setState({ kind: "error", text: e instanceof ApiError ? e.message : "Could not send. Check your connection." });
+    }
+  }
+
+  const status = state.kind === "sending" ? "Sending…"
+    : state.kind === "sent" ? "Thanks. Your report now counts towards this train's crowding."
+    : state.kind === "error" ? state.text : "";
+  return (
+    <section className="card p-4" aria-label="Report crowding">
+      <h3 className="text-[15px] font-bold text-ink">On this train?</h3>
+      <p className="mt-0.5 text-xs text-ink-2">Tell other riders how full your carriage is.</p>
+      <div role="group" aria-label="How full is your carriage" className="mt-3 flex flex-wrap gap-1.5">
+        {CROWD.map((c) => {
+          const chosen = state.kind === "sent" && state.level === c.level;
+          return (
+            <button key={c.level} type="button" disabled={state.kind === "sending"} aria-pressed={chosen} onClick={() => send(c.level)}
+              style={chosen ? { background: crowdSoftVar(c.level) } : undefined}
+              className={`pressable flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold text-ink-2 disabled:opacity-60 ${chosen ? "" : "bg-surface-2 hover:bg-surface-3"}`}>
+              <CrowdIcon level={c.level} size={16} />
+              {c.name}
+            </button>
+          );
+        })}
+      </div>
+      <p role="status" className={`mt-2 min-h-4 text-xs ${state.kind === "error" ? "font-semibold text-critical" : "text-ink-2"}`}>{status}</p>
+    </section>
   );
 }
 
@@ -92,10 +136,14 @@ export function TrainDetail({ engine, line, tripId, onClose }: { engine: CrowdEn
             ? `Over capacity: about ${people - engine.capacity} more people want this train than fit`
             : `${pctText(tr.loadPct)}, likely ${Math.floor(tr.loadPct * lo)}–${Math.min(100, Math.floor(tr.loadPct * hi))}% · about ${people} people on board`}
         </p>
+        {tr.observed && (
+          <p className="mt-1 text-xs font-semibold text-ink-2">Updated with {describeSources(tr.observed)} from this train</p>
+        )}
         <div className="mt-4"><TrainView cars={engine.carLoads(tr.loadPct, dir)} height={170} /></div>
         {bestCar(engine.carLoads(tr.loadPct, dir)) && <p className="mt-2 text-xs font-semibold text-ink-2">{bestCar(engine.carLoads(tr.loadPct, dir))}</p>}
         <p className="mt-1 text-[11px] text-ink-3">Per-car shares are modelled: middle cars usually fill first.</p>
       </div>
+      <ReportCrowding tripId={tripId} />
       <section className="card overflow-hidden" aria-label="Crowding at the next stops">
         <h3 className="px-4 pb-2 pt-4 text-[15px] font-bold text-ink">Next stops</h3>
         <ol>

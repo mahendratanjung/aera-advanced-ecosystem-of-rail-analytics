@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import { wsUrl } from "./api";
 import { useSession } from "./session";
 import { useTwin } from "./store";
+import { useViewPref } from "./view";
 
 const STALE_MS = 12_000;
 const PING_MS = 10_000;
@@ -21,6 +22,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     hydrate();
+    useViewPref.getState().load();
   }, [hydrate]);
 
   useEffect(() => {

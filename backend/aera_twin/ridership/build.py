@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -155,7 +155,7 @@ def build(line: Line, od: pd.DataFrame, komuter: pd.DataFrame, weeks: int = 12) 
     return {
         "line_id": line.id,
         "capacity": CAPACITY,
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "window": {"from": start.date().isoformat(), "to": latest.date().isoformat(), "weeks": weeks},
         "source": {
             "od": "Daily Origin-Destination Ridership: Rapid Rail (KV), data.gov.my",

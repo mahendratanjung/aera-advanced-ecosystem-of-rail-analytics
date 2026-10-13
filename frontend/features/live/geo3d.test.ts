@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { TrackFrame, carPoses, dimsAt, TUNNEL_M } from "./geo3d.ts";
+import { STEADY_ZOOM, TrackFrame, carPoses, dimsAt, TUNNEL_M } from "./geo3d.ts";
 
 const root = new URL("../../../", import.meta.url);
 const line = JSON.parse(readFileSync(new URL("data/lines/KJ.json", root), "utf8"));
@@ -39,4 +39,19 @@ test("cars in the tunnel run at ground level", () => {
   const mid = (TUNNEL_M[0] + TUNNEL_M[1]) / 2;
   assert.ok(carPoses(frame, dims, mid, 1).every((c) => c.ug && c.z < 1));
   assert.ok(carPoses(frame, dims, 20000, 1).every((c) => !c.ug && c.z === dims.deckTop));
+});
+
+test("sizes hold steady on screen in the middle zooms and shrink with the map below", () => {
+  const onScreen = (z: number) => {
+    const d = dimsAt(z, 3.1);
+    return { car: d.carLength / d.px, width: d.carWidth / d.px, deck: d.deckHalf / d.px, platform: d.platformLength / d.px };
+  };
+  const a = onScreen(STEADY_ZOOM);
+  const b = onScreen(STEADY_ZOOM + 1.5);
+  assert.ok(Math.abs(a.car - b.car) < 0.01 && Math.abs(a.deck - b.deck) < 0.01, "steady from STEADY_ZOOM up");
+  const c = onScreen(STEADY_ZOOM - 2);
+  assert.ok(c.car < a.car / 2 && c.deck < a.deck / 2, "zoomed out the line and trains are smaller on screen");
+  const far = onScreen(8);
+  assert.ok(far.width >= 3 && far.car >= 3, "never smaller than a few pixels");
+  assert.ok(c.platform < a.platform / 2, "platforms shrink to a station mark");
 });

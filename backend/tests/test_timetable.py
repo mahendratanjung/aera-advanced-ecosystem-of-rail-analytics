@@ -91,3 +91,14 @@ def test_open_ended_hold_does_not_produce_nan():
     nxt = LINE.next_departures("KJ20", t, [hold])
     assert all(r["arrival"] < float("inf") for r in nxt[1])
     assert LINE.active_trains(t, [hold])
+
+
+def test_an_inserted_train_runs_from_the_terminal():
+    t = kl(8)
+    extra = Disruption(id="x", kind="insert", stop_id=LINE.directions[0]["stops"][0]["station_id"], direction_id=0,
+                       start_ms=int((t - 120) * 1000))
+    trips = LINE.trips_between(0, t - 600, t, [extra])
+    assert any("-x" in tr.id for tr in trips)
+    ids = {s.trip_id for s in LINE.active_trains(t, [extra])}
+    assert any("-x" in i for i in ids)
+    assert not any("-x" in s.trip_id for s in LINE.active_trains(t, []))

@@ -13,6 +13,8 @@ import { useTwin } from "@/lib/store";
 interface ScenarioInfo { id: string; name: string; description: string }
 const SPEEDS = [1, 5, 10, 30, 60];
 const KIND_LABEL = { delay: "Delay", hold: "Train held", suspend: "Section suspended", surge: "Event crowd" } as const;
+/** Kinds listed on active disruptions; "insert" (extra train) is added from the Control room. */
+const ACTIVE_LABEL: Record<string, string> = { ...KIND_LABEL, insert: "Extra train" };
 
 /** Run the twin for demonstrations: scenarios, the clock and disruptions (ADM-04, SIM-03, SIM-04). */
 export function SimulationControl() {
@@ -112,7 +114,7 @@ export function SimulationControl() {
                 {sim.disruptions.map((d) => (
                   <li key={d.id} className="flex items-center justify-between gap-4 py-3 text-sm">
                     <span className="text-ink">
-                      <strong>{KIND_LABEL[d.kind]}</strong> at {name(d.stop_id)}{d.to_stop_id && ` to ${name(d.to_stop_id)}`}
+                      <strong>{ACTIVE_LABEL[d.kind]}</strong> at {name(d.stop_id)}{d.to_stop_id && ` to ${name(d.to_stop_id)}`}
                       {d.kind === "delay" && `, ${Math.round(d.delay_s / 60)} min`}{d.kind === "surge" && `, ${d.multiplier}× boarding`}
                       <span className="text-ink-3"> · from {klTime(d.start_ms)}{d.end_ms ? ` to ${klTime(d.end_ms)}` : ", until cleared"}</span>
                     </span>

@@ -1,0 +1,132 @@
+{
+  "additionalProperties": false,
+  "description": "How full one car is, from an in-train sensor. Published on aera/v1/train/{device}/count.\n\n``method`` says what measured it: an on-board camera counting people, door beam counters\n(boardings minus alightings) or the suspension's load-weigh signal. Send ``count``\n(people) or ``load_pct`` (percent of the car's capacity), not both. Name the train with\n``trip_id`` when the device knows it, otherwise with the station it last stopped at and\nits direction; the service matches that to the train in the timetable.",
+  "properties": {
+    "v": {
+      "const": 1,
+      "title": "V",
+      "type": "integer"
+    },
+    "seq": {
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "ts": {
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    },
+    "method": {
+      "enum": [
+        "camera",
+        "door_counter",
+        "load_weigh"
+      ],
+      "title": "Method",
+      "type": "string"
+    },
+    "car": {
+      "maximum": 4,
+      "minimum": 1,
+      "title": "Car",
+      "type": "integer"
+    },
+    "count": {
+      "anyOf": [
+        {
+          "maximum": 600,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Count"
+    },
+    "load_pct": {
+      "anyOf": [
+        {
+          "maximum": 250,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Load Pct"
+    },
+    "confidence": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence"
+    },
+    "trip_id": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trip Id"
+    },
+    "station_id": {
+      "anyOf": [
+        {
+          "maxLength": 16,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Station Id"
+    },
+    "direction_id": {
+      "anyOf": [
+        {
+          "enum": [
+            0,
+            1
+          ],
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Direction Id"
+    }
+  },
+  "required": [
+    "v",
+    "seq",
+    "ts",
+    "method",
+    "car"
+  ],
+  "title": "CarCount",
+  "type": "object",
+  "$id": "https://aera.dev/contracts/v1/car-count.schema.json"
+}

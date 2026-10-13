@@ -16,6 +16,7 @@
 
 import type { Disruption } from "../types";
 import { type LineModel, type Trip, serviceDayStart } from "../sim/trains.ts";
+import { crowdOf } from "./levels.ts";
 
 const KL_OFFSET_S = 8 * 3600;
 export const CARS = 4;
@@ -149,7 +150,7 @@ export class CrowdEngine {
 
   /** Trains of one direction in a time window, with predicted load on every leg. */
   runs(dir: number, from: number, to: number, disruptions: Disruption[], mult = 1): TrainRun[] {
-    const trips = this.line.tripsBetween(dir, from, to);
+    const trips = this.line.tripsBetween(dir, from, to, disruptions);
     const timed = trips.map((trip) => ({ trip, times: this.line.timeline(trip, disruptions) }));
     const surges = disruptions.filter((d) => d.kind === "surge");
     const nStops = this.line.direction(dir).stops.length;
@@ -196,6 +197,21 @@ export class CrowdEngine {
         const k = Math.min(state.stopIndex, run.legs.length - 1);
         out.push({ run, state, loadPct: run.legs[k] ?? 0 });
       }
+    }
+    return out;
+  }
+
+  /**
+   * MAPC-01: load of the train on, or next to run, each leg of a direction (travel order),
+   * so the track can show where trains are full now. Null where no train is due.
+   */
+  stretchLoads(dir: number, t: number, disruptions: Disruption[], mult = 1): (number | null)[] {
+    const n = this.line.direction(dir).stops.length - 1;
+    const runs = this.runs(dir, t - this.lookback(t, disruptions), t + 45 * 60, disruptions, mult);
+    const out: (number | null)[] = Array(n).fill(null);
+    for (let k = 0; k < n; k++) {
+      const r = runs.find((x) => Number.isFinite(x.times[k][1]) && x.times[k + 1][0] >= t);
+      if (r) out[k] = r.legs[k];
     }
     return out;
   }
@@ -285,4 +301,25 @@ export class CrowdEngine {
       total: [0, 1].reduce((s, d) => s + b[String(d)][i].reduce((a, v) => a + v, 0), 0),
     }));
   }
+}
+
+/**
+ * The train worth taking: the next one, unless a later one is a whole crowding level calmer
+ * and clearly emptier, so a train one point under a threshold is never worth waiting for.
+ */
+export function calmestOption(options: TripOption[]): TripOption | null {
+  if (!options.length) return null;
+  const first = options[0];
+  const calmer = options.filter((o) => crowdOf(o.peak).level < crowdOf(first.peak).level && o.peak <= first.peak - 5);
+  if (!calmer.length) return first;
+  return calmer.reduce((a, b) => (crowdOf(b.peak).level < crowdOf(a.peak).level || (crowdOf(b.peak).level === crowdOf(a.peak).level && b.depart < a.depart) ? b : a));
+}
+
+/** Typical load on the busiest stretch of a ride, by hour of a weekday (null outside service). */
+export function typicalRide(engine: CrowdEngine, dir: number, ko: number, kd: number, weekday: number): (number | null)[] {
+  const days = Array.from({ length: kd - ko }, (_, i) => engine.typicalDay(dir, engine.segment(dir, ko + i), weekday));
+  return Array.from({ length: 24 }, (_, h) => {
+    const vals = days.map((d) => d[h]).filter((v): v is number => v !== null);
+    return vals.length ? Math.max(...vals) : null;
+  });
 }

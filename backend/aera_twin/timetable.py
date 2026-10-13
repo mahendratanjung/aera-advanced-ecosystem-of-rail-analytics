@@ -29,7 +29,9 @@ INF = math.inf
 
 class Disruption(BaseModel):
     id: str
-    kind: Literal["delay", "hold", "suspend", "surge"]
+    # insert: an extra train leaves the first stop of direction_id at start_ms (an operator
+    # what-if). It adds a trip; it does not delay any.
+    kind: Literal["delay", "hold", "suspend", "surge", "insert"]
     stop_id: str
     to_stop_id: str | None = None
     direction_id: int | None = None
@@ -78,7 +80,7 @@ class Line:
         }
 
     @classmethod
-    def load(cls, line_id: str, path: Path | None = None) -> "Line":
+    def load(cls, line_id: str, path: Path | None = None) -> Line:
         p = path or LINES_DIR / f"{line_id}.json"
         return cls(json.loads(p.read_text()))
 
@@ -93,9 +95,14 @@ class Line:
         weekday = datetime.fromtimestamp(day_start + 1, KL_TZ).weekday()
         return [sid for sid, days in self.calendar.items() if days[weekday]]
 
-    def trips_between(self, direction_id: int, t_from: float, t_to: float) -> list[Trip]:
-        """Trips whose first departure lies in [t_from, t_to]."""
+    def trips_between(self, direction_id: int, t_from: float, t_to: float,
+                      disruptions: list[Disruption] | tuple = ()) -> list[Trip]:
+        """Trips whose first departure lies in [t_from, t_to], with any inserted extra trains."""
         out: list[Trip] = []
+        for d in disruptions:
+            t0 = d.start_ms // 1000
+            if d.kind == "insert" and d.direction_id == direction_id and t_from <= t0 <= t_to:
+                out.append(Trip(f"{self.id}-{direction_id}-x{t0}", direction_id, int(t0)))
         day = self.service_day_start(t_from) - DAY_S
         last_day = self.service_day_start(t_to)
         while day <= last_day:
@@ -192,7 +199,7 @@ class Line:
         out = []
         lb = self._lookback(t, disruptions)
         for d in self.directions:
-            for trip in self.trips_between(d, t - lb, t):
+            for trip in self.trips_between(d, t - lb, t, disruptions):
                 st = self.state_at(trip, self.timeline(trip, disruptions), t)
                 if st:
                     out.append(st)
@@ -210,7 +217,7 @@ class Line:
             if idx is None or idx == len(dd["stops"]) - 1:
                 result[d] = rows
                 continue
-            for trip in self.trips_between(d, t - lb, t + horizon_s):
+            for trip in self.trips_between(d, t - lb, t + horizon_s, disruptions):
                 times = self.timeline(trip, disruptions)
                 arr, dep = times[idx]
                 if dep < t or arr == INF:

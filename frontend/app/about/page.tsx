@@ -13,6 +13,8 @@ export default function AboutPage() {
           <li>How full each train is predicted to be, from Quiet to Packed, and car by car.</li>
           <li>The next trains at any station, the calmest train for a ride, and when the line is busiest through the week.</li>
           <li>The effect of delays and events: a held train leaves the next one fuller, and an event crowd fills trains downstream.</li>
+          <li>Other ways to travel when trains stop: wait, go round on other Rapid Rail lines, or bridge the gap by bus or e-hailing.</li>
+          <li>Ask AERA, a chat assistant that answers from the same timetable and predictions.</li>
         </ul>
       </Section>
       <Section title="How full trains are">
@@ -30,12 +32,17 @@ export default function AboutPage() {
           <li>Timetable, stops and track: Prasarana Rapid Rail KL GTFS Static, via data.gov.my.</li>
           <li>Journeys: Daily Origin-Destination Ridership, Rapid Rail (KV), data.gov.my.</li>
           <li>Shape of the day: Hourly Origin-Destination Ridership, KTM Komuter, data.gov.my.</li>
-          <li>Basemap: © OpenStreetMap contributors, © CARTO.</li>
-          <li>3D train: subway cars from the Train Kit by Kenney (kenney.nl), CC0.</li>
+          <li>Other Rapid Rail lines, for other ways to travel: the same GTFS Static feed. Walking times between lines are estimates.</li>
+          <li>Basemap: © Mapbox, © OpenStreetMap contributors (Mapbox Standard); without a Mapbox key, © CARTO.</li>
+          <li>3D train: an Innovia Metro 300 model built for AERA from photographs of the line&apos;s trains.</li>
+          <li>Station photos: Wikimedia Commons, with each author and licence shown on the station card.</li>
+          <li>Ask AERA: a free AI model reached through OpenRouter, when the service has a key.</li>
         </ul>
       </Section>
       <Section title="Privacy">
-        <p className="text-[15px] text-ink-2">All ridership data is published in aggregate. AERA collects nothing about passengers.</p>
+        <p className="text-[15px] text-ink-2">All ridership data is published in aggregate. AERA collects nothing about passengers.
+          Questions typed into Ask AERA are sent to OpenRouter and the model provider to be answered, so do not include personal details.
+          &quot;Near me&quot; uses your location once, in your browser only.</p>
       </Section>
       <Section title="Team">
         <p className="text-[15px] text-ink-2">

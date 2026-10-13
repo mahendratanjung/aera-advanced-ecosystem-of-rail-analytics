@@ -5,7 +5,7 @@ import { pctText, crowdOf } from "@/lib/crowd/levels";
 import { TooltipBox, useTip } from "./Tooltip";
 
 const H = 132;
-const PAD_L = 30;
+const PAD_L = 38;
 const PAD_B = 20;
 const PAD_T = 10;
 
@@ -32,6 +32,14 @@ export function HourBars({ values, nowHour, label, from = 5 }: { values: (number
           const v = values[h];
           const x = PAD_L + i * bw;
           const isNow = nowHour !== undefined && Math.floor(nowHour) === h;
+          // Hover on desktop, tap on phones.
+          const reveal = () => {
+            const box = ref.current?.getBoundingClientRect();
+            if (!box) return;
+            show({ x: ((x + bw / 2) / W) * box.width, y: ((v !== null ? y(v) : y(0)) / H) * box.height,
+              title: `${String(h).padStart(2, "0")}:00 to ${String((h + 1) % 24).padStart(2, "0")}:00`,
+              lines: v === null ? ["No trains"] : [`${crowdOf(v).name}, ${pctText(v)}`] });
+          };
           return (
             <g key={h}>
               {v !== null && v > 0 && (
@@ -45,25 +53,17 @@ export function HourBars({ values, nowHour, label, from = 5 }: { values: (number
                   {isNow ? "Now" : String(h).padStart(2, "0")}
                 </text>
               )}
-              <rect x={x} y={0} width={bw} height={H} fill="transparent"
-                onMouseEnter={() => {
-                  const box = ref.current?.getBoundingClientRect();
-                  if (!box) return;
-                  const px = ((x + bw / 2) / W) * box.width;
-                  show({ x: px, y: ((v !== null ? y(v) : y(0)) / H) * box.height,
-                    title: `${String(h).padStart(2, "0")}:00 to ${String((h + 1) % 24).padStart(2, "0")}:00`,
-                    lines: v === null ? ["No trains"] : [`${crowdOf(v).name}, ${pctText(v)}`] });
-                }} />
+              <rect x={x} y={0} width={bw} height={H} fill="transparent" onMouseEnter={reveal} onClick={reveal} />
             </g>
           );
         })}
         <line x1={PAD_L} x2={W} y1={y(0)} y2={y(0)} stroke="var(--rule-strong)" />
       </svg>
       <TooltipBox tip={tip} width={ref.current?.clientWidth ?? 400} />
-      <table className="sr-only">
+      <div className="sr-only"><table>
         <caption>{label}</caption>
         <tbody>{hours.map((h) => <tr key={h}><th>{h}:00</th><td>{values[h] === null ? "no trains" : `${Math.round(values[h]!)}%`}</td></tr>)}</tbody>
-      </table>
+      </table></div>
     </div>
   );
 }

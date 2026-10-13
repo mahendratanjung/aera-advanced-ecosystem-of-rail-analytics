@@ -2,7 +2,9 @@
  * Crowding levels: how full a train is, in five steps. Load is passengers as a share of the
  * 800-person capacity of a four-car Kelana Jaya train (seated plus standing).
  *
- * The thresholds and wording are a product decision, not a data fact. Change them here only.
+ * The thresholds and wording are a product decision, not a data fact. The defaults live here;
+ * an admin can move the thresholds (ADM-03) and the twin service sends them to every browser,
+ * which applies them with setCrowdBounds.
  */
 
 export type CrowdLevel = 1 | 2 | 3 | 4 | 5;
@@ -21,6 +23,14 @@ export const CROWD: CrowdInfo[] = [
   { level: 4, name: "Crowded", hint: "Shoulder to shoulder", from: 75 },
   { level: 5, name: "Packed", hint: "You may not get on", from: 95 },
 ];
+
+export const DEFAULT_BOUNDS = [20, 50, 75, 95];
+
+/** Where Comfortable, Busy, Crowded and Packed start, from the service's settings. */
+export function setCrowdBounds(bounds: number[] | undefined | null) {
+  if (!bounds || bounds.length !== 4 || !bounds.every((b, i) => b > (i ? bounds[i - 1] : 0))) return;
+  bounds.forEach((b, i) => (CROWD[i + 1].from = b));
+}
 
 export function crowdOf(loadPct: number): CrowdInfo {
   for (let i = CROWD.length - 1; i >= 0; i--) if (loadPct >= CROWD[i].from) return CROWD[i];

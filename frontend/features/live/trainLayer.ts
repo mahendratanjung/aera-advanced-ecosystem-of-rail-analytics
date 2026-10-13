@@ -23,9 +23,15 @@ export interface TrainDraw {
   /** Beacon colour above the train (selected or held), or null. */
   marker: string | null;
   selected: boolean;
+  /**
+   * TRAINS-02: a train of another line, drawn as plain cars in its line colour (no crowding
+   * model) at this car length, instead of the Kelana Jaya Innovia model.
+   */
+  box?: { color: string; carLength: number; width: number; height: number; roof?: string };
 }
 
 const MAX_CARS = 4 * 96;
+const MAX_BOX_CARS = 6 * 420;
 const MAX_MARKERS = 96;
 
 type Part = "cabBody" | "midBody" | "cabLivery" | "midLivery" | "cabGlass" | "midGlass" | "cabCrowd" | "midCrowd" | "head" | "tail";
@@ -89,6 +95,69 @@ class CarSet {
   }
 }
 
+/** Simple instanced cars for the other lines: a body in the line colour, a window band and a roof. */
+class BoxSet {
+  readonly body: THREE.InstancedMesh;
+  readonly glass: THREE.InstancedMesh;
+  readonly roof: THREE.InstancedMesh;
+  readonly glassMat: THREE.MeshStandardMaterial;
+  private readonly mats: THREE.Material[];
+
+  constructor(scene: THREE.Scene) {
+    const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.55, metalness: 0.1 });
+    this.glassMat = new THREE.MeshStandardMaterial({ color: "#1b2433", roughness: 0.25, metalness: 0.2, emissive: new THREE.Color("#ffe2a8"), emissiveIntensity: 0 });
+    // The roof takes the train's predicted crowding (NETC-02), or a pale grey without a model.
+    const roofMat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.7 });
+    this.mats = [bodyMat, this.glassMat, roofMat];
+    const make = (mat: THREE.Material) => {
+      const mesh = new THREE.InstancedMesh(box, mat, MAX_BOX_CARS);
+      mesh.count = 0;
+      mesh.frustumCulled = false;
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      scene.add(mesh);
+      return mesh;
+    };
+    this.body = make(bodyMat);
+    this.glass = make(this.glassMat);
+    this.roof = make(roofMat);
+    const white = new THREE.Color("#ffffff");
+    for (let i = 0; i < MAX_BOX_CARS; i++) this.body.setColorAt(i, white);
+    this.body.instanceColor!.setUsage(THREE.DynamicDrawUsage);
+    for (let i = 0; i < MAX_BOX_CARS; i++) this.roof.setColorAt(i, white);
+    this.roof.instanceColor!.setUsage(THREE.DynamicDrawUsage);
+  }
+
+  setOpacity(opacity: number) {
+    for (const m of this.mats) {
+      m.transparent = opacity < 1;
+      m.opacity = opacity;
+      m.depthWrite = opacity >= 1;
+      m.needsUpdate = true;
+    }
+  }
+
+  begin() {
+    this.body.count = this.glass.count = this.roof.count = 0;
+  }
+
+  push(body: THREE.Matrix4, glass: THREE.Matrix4, roof: THREE.Matrix4, colour: THREE.Color, roofColour: THREE.Color) {
+    if (this.body.count >= MAX_BOX_CARS) return;
+    const i = this.body.count++;
+    this.body.setMatrixAt(i, body);
+    this.body.setColorAt(i, colour);
+    this.glass.setMatrixAt(this.glass.count++, glass);
+    this.roof.setMatrixAt(this.roof.count, roof);
+    this.roof.setColorAt(this.roof.count++, roofColour);
+  }
+
+  end() {
+    for (const m of [this.body, this.glass, this.roof]) m.instanceMatrix.needsUpdate = true;
+    this.body.instanceColor!.needsUpdate = true;
+    this.roof.instanceColor!.needsUpdate = true;
+  }
+}
+
 export class TrainLayer implements CustomLayerInterface {
   readonly id = "aera-trains-3d";
   readonly type = "custom" as const;
@@ -101,6 +170,10 @@ export class TrainLayer implements CustomLayerInterface {
   private readonly local: THREE.Matrix4;
   private readonly surface: CarSet;
   private readonly tunnel: CarSet;
+  private readonly boxSurface: BoxSet;
+  private readonly boxTunnel: BoxSet;
+  private readonly m4b = new THREE.Matrix4();
+  private readonly m4c = new THREE.Matrix4();
   private readonly markers: THREE.InstancedMesh;
   private readonly halo: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
   private readonly hemi = new THREE.HemisphereLight("#ffffff", "#9aa3b5", 2);
@@ -124,6 +197,9 @@ export class TrainLayer implements CustomLayerInterface {
     this.surface = new CarSet(this.scene, geo);
     this.tunnel = new CarSet(this.scene, geo);
     this.tunnel.setOpacity(0.55);
+    this.boxSurface = new BoxSet(this.scene);
+    this.boxTunnel = new BoxSet(this.scene);
+    this.boxTunnel.setOpacity(0.55);
     this.markers = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: "#ffffff" }), MAX_MARKERS);
     this.markers.count = 0;
     this.markers.frustumCulled = false;
@@ -188,11 +264,15 @@ export class TrainLayer implements CustomLayerInterface {
     // Interior lighting shows through the windows at night, and always in the tunnel.
     this.surface.materials.glass.emissiveIntensity = 0.9 * night;
     this.tunnel.materials.glass.emissiveIntensity = 0.75;
+    this.boxSurface.glassMat.emissiveIntensity = 0.9 * night;
+    this.boxTunnel.glassMat.emissiveIntensity = 0.75;
   }
 
   setUnderground(on: boolean) {
     this.surface.setOpacity(on ? 0.22 : 1);
     this.tunnel.setOpacity(on ? 1 : 0.55);
+    this.boxSurface.setOpacity(on ? 0.22 : 1);
+    this.boxTunnel.setOpacity(on ? 1 : 0.55);
   }
 
   update(trains: TrainDraw[], dims: Dims, timeS: number, animate: boolean) {
@@ -204,10 +284,27 @@ export class TrainLayer implements CustomLayerInterface {
     this.s.set(kL, kW, kH);
     this.surface.begin();
     this.tunnel.begin();
+    this.boxSurface.begin();
+    this.boxTunnel.begin();
     let markers = 0;
     this.halo.visible = false;
     for (const tr of trains) {
-      tr.cars.forEach((car, i) => {
+      if (tr.box) {
+        const colour = this.colour(tr.box.color);
+        const roofColour = this.colour(tr.box.roof ?? "#eef1f5");
+        const L = tr.box.carLength;
+        const W = tr.box.width;
+        const H = tr.box.height;
+        for (const car of tr.cars) {
+          const set = car.ug ? this.boxTunnel : this.boxSurface;
+          this.q.setFromAxisAngle(this.zAxis, car.heading);
+          this.m4.compose(this.v.set(car.x, car.y, car.z), this.q, this.ms.set(L, W, H));
+          this.m4b.compose(this.v.set(car.x, car.y, car.z + H * 0.48), this.q, this.ms.set(L * 0.94, W * 1.03, H * 0.3));
+          this.m4c.compose(this.v.set(car.x, car.y, car.z + H), this.q, this.ms.set(L * 0.92, W * 0.72, H * 0.07));
+          set.push(this.m4, this.m4b, this.m4c, colour, roofColour);
+        }
+      }
+      if (!tr.box) tr.cars.forEach((car, i) => {
         const set = car.ug ? this.tunnel : this.surface;
         const flip = car.kind === "rear";
         this.q.setFromAxisAngle(this.zAxis, car.heading + (flip ? Math.PI : 0));
@@ -231,9 +328,11 @@ export class TrainLayer implements CustomLayerInterface {
         markers++;
       }
       if (tr.selected) {
-        const span = 2 * dims.carLength + 1.5 * dims.carGap;
+        const n = tr.cars.length;
+        const len = tr.box?.carLength ?? dims.carLength;
+        const span = (n / 2) * len + (n / 2 - 0.5) * dims.carGap;
         this.halo.position.set(mid.x, mid.y, mid.z + 0.08 * kH);
-        this.halo.rotation.set(0, 0, tr.cars[1].heading);
+        this.halo.rotation.set(0, 0, tr.cars[Math.floor((n - 1) / 2)].heading);
         this.halo.scale.set(span * 1.25, dims.carWidth * 2.6, 1);
         this.halo.material.color.copy(this.colour(tr.marker ?? "#2563eb"));
         this.halo.material.opacity = animate ? 0.28 + 0.12 * Math.sin(timeS * 3) : 0.32;
@@ -245,11 +344,14 @@ export class TrainLayer implements CustomLayerInterface {
     if (this.markers.instanceColor) this.markers.instanceColor.needsUpdate = true;
     this.surface.end();
     this.tunnel.end();
+    this.boxSurface.end();
+    this.boxTunnel.end();
   }
 
   private middle(tr: TrainDraw): { x: number; y: number; z: number } {
-    const a = tr.cars[1];
-    const b = tr.cars[2];
+    const n = tr.cars.length;
+    const a = tr.cars[Math.floor((n - 1) / 2)];
+    const b = tr.cars[Math.ceil((n - 1) / 2)];
     return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, z: (a.z + b.z) / 2 };
   }
 
@@ -279,7 +381,7 @@ export class TrainLayer implements CustomLayerInterface {
     let bestD = Infinity;
     for (const tr of this.trains) {
       const a = tr.cars[0];
-      const b = tr.cars[3];
+      const b = tr.cars[tr.cars.length - 1];
       const ex = (a.x - b.x) / 6;
       const ey = (a.y - b.y) / 6;
       const z = (a.z + b.z) / 2 + dims.carHeight / 2;

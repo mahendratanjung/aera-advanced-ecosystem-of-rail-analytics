@@ -96,8 +96,15 @@ export class LineModel {
       .map(([sid]) => sid);
   }
 
-  tripsBetween(directionId: number, tFrom: number, tTo: number): Trip[] {
+  /** Trips whose first departure lies in [tFrom, tTo], with any inserted extra trains. */
+  tripsBetween(directionId: number, tFrom: number, tTo: number, disruptions: Disruption[] = []): Trip[] {
     const out: Trip[] = [];
+    for (const d of disruptions) {
+      const t0 = Math.floor(d.start_ms / 1000);
+      if (d.kind === "insert" && d.direction_id === directionId && tFrom <= t0 && t0 <= tTo) {
+        out.push({ id: `${this.data.id}-${directionId}-x${t0}`, directionId, start: t0 });
+      }
+    }
     let day = serviceDayStart(tFrom) - DAY_S;
     const lastDay = serviceDayStart(tTo);
     while (day <= lastDay) {
@@ -196,7 +203,7 @@ export class LineModel {
     const out: TrainState[] = [];
     const lb = this.lookback(t, disruptions);
     for (const d of this.data.directions) {
-      for (const trip of this.tripsBetween(d.direction_id, t - lb, t)) {
+      for (const trip of this.tripsBetween(d.direction_id, t - lb, t, disruptions)) {
         const st = this.stateAt(trip, this.timeline(trip, disruptions), t);
         if (st) out.push(st);
       }
@@ -215,7 +222,7 @@ export class LineModel {
         result[d] = rows;
         continue;
       }
-      for (const trip of this.tripsBetween(d, t - lb, t + horizonS)) {
+      for (const trip of this.tripsBetween(d, t - lb, t + horizonS, disruptions)) {
         const [arr, dep] = this.timeline(trip, disruptions)[idx];
         if (dep < t || arr === Infinity) continue;
         const nominal = trip.start + dd.stops[idx].arr;

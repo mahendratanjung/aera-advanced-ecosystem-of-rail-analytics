@@ -19,6 +19,11 @@
   --color-highlight: var(--highlight);
   --color-highlight-soft: var(--highlight-soft);
   --color-line: var(--line-kj);
+  --color-ops: var(--ops);
+  --color-ops-2: var(--ops-2);
+  --color-ops-ink: var(--ops-ink);
+  --color-ops-ink-2: var(--ops-ink-2);
+  --color-ops-soft: var(--ops-soft);
   --color-crowd-empty: var(--crowd-empty);
   --color-critical: var(--status-critical);
   --color-serious: var(--status-serious);
@@ -55,6 +60,10 @@ a {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
   border-radius: 6px;
+}
+/* For an input whose container draws the ring instead (the search pill). */
+.ring-on-parent:focus-visible {
+  outline: none;
 }
 
 /* Times and counts never shift as digits change */
@@ -105,6 +114,11 @@ a {
 
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Full-screen sheets on phones start below the notch */
+.safe-top {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
 }
 
 @keyframes fade-up {

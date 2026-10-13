@@ -12,13 +12,13 @@ import json
 import logging
 import ssl
 from collections import deque
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 
 Handler = Callable[[str, bytes], Awaitable[None]]
-INBOUND = ("aera/v1/+/+/event", "aera/v1/+/+/telemetry", "aera/v1/+/+/status")
+INBOUND = ("aera/v1/+/+/event", "aera/v1/+/+/telemetry", "aera/v1/+/+/status", "aera/v1/train/+/count")
 
 
 class InProcessBus:

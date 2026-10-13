@@ -7,8 +7,8 @@ condition never produces two open alerts, and ``clear`` resolves by key.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from aera_twin.config import Settings
 

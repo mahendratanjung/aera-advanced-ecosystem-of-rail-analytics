@@ -25,8 +25,38 @@
   --accent-2-soft: #e3f6fa;
   --highlight: #f97316;
   --highlight-soft: #fff1e6;
+  /* Logo: navy tile, white A, light-blue train (static copy in public/icon.svg) */
+  --brand-tile: #1149b8;
+  --brand-tile-2: #0a3180;
+  --brand-train: #38bdf8;
   --focus: #2563eb;
+  /* Operator view: deep navy chrome so staff always know which view they are in */
+  --ops: #0b1f44;
+  --ops-2: #163a7a;
+  --ops-ink: #ffffff;
+  --ops-ink-2: #b9c7e4;
+  --ops-soft: #e9eef8;
   --line-kj: #d50032;
+
+  /* Klang Valley rail lines as on the integrated transit map (network map, line badges) */
+  --line-k1: #1e5aa8;
+  --line-k2: #b83a2e;
+  --line-ag: #e57200;
+  --line-sp: #76232f;
+  --line-e6: #6b2c91;
+  --line-e7: #1f97a8;
+  --line-mr: #84bd00;
+  --line-kg: #047940;
+  --line-sk: #8a9a2b;
+  --line-sa: #00a9e0;
+  --line-py: #ffcd00;
+  --line-brt: #115740;
+  --net-paper: #ffffff;
+  --net-ink: #1e293b;
+  --net-hub: #1f2937;
+  --net-link: #b4bccb;
+  --net-dot: #ffffff;
+  --net-closed: #ffffff;
 
   /* Crowding: fills, soft chip backgrounds and chip text */
   --crowd-1: #10b981;

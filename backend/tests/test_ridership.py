@@ -1,7 +1,12 @@
 import pytest
 
 from aera_twin.ridership.assign import (
-    direction_of, journey_class, journey_on_line, map_station, segments_between, shift_profile,
+    direction_of,
+    journey_class,
+    journey_on_line,
+    map_station,
+    segments_between,
+    shift_profile,
 )
 from aera_twin.timetable import load_line
 

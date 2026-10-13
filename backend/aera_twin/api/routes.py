@@ -6,19 +6,29 @@ operator's station (OPS-02). Admin endpoints require the admin role.
 
 from __future__ import annotations
 
+import hmac
 import uuid
-from typing import Literal
+from dataclasses import asdict
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, status
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, WebSocket, status
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+from aera_twin.assistant import AskBody, Assistant, AssistantError
 from aera_twin.auth import (
-    current_user, ensure_station, hash_password, issue_token, require_admin, require_user,
-    user_from_token, verify_password,
+    current_user,
+    ensure_station,
+    hash_password,
+    issue_token,
+    require_admin,
+    require_user,
+    user_from_token,
+    verify_password,
 )
 from aera_twin.config import Settings, SourceMode
-from aera_twin.paths import DATA_DIR
+from aera_twin.crowdsource.riders import DEVICE_PATTERN, LocationPing, RiderError, RiderReport
+from aera_twin.paths import DATA_DIR, NETWORK_DIR
 from aera_twin.realtime import Client
 from aera_twin.runtime import Twin
 from aera_twin.simclock import wall_ms
@@ -71,6 +81,33 @@ def line_model(line_id: str):
     return FileResponse(path, media_type="application/json", headers={"Cache-Control": "public, max-age=3600"})
 
 
+@router.get("/network")
+def network():
+    """Every Rapid Rail line with run times and estimated transfers, for the route advisor."""
+    path = NETWORK_DIR / "rapid.json"
+    if not path.exists():
+        raise HTTPException(404, "No network file. Run npm run import:network.")
+    return FileResponse(path, media_type="application/json", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@router.get("/network/model")
+def network_model():
+    """Typical-week crowding on every other line (NETC-01), from data.gov.my ridership."""
+    path = DATA_DIR / "models" / "network.json"
+    if not path.exists():
+        raise HTTPException(404, "No network crowding model. Run npm run model:network.")
+    return FileResponse(path, media_type="application/json", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@router.get("/network/trains")
+def network_trains():
+    """Timetables for every line except the Kelana Jaya Line, for the trains on both maps (TRAINS-01)."""
+    path = NETWORK_DIR / "trains.json"
+    if not path.exists():
+        raise HTTPException(404, "No trains file. Run npm run import:trains.")
+    return FileResponse(path, media_type="application/json", headers={"Cache-Control": "public, max-age=3600"})
+
+
 @router.get("/stations")
 def stations(t: Twin = Depends(twin)):
     return t.station_summaries()
@@ -106,6 +143,26 @@ def alerts(open_only: bool = True, user: User | None = Depends(current_user), t:
 @router.get("/scenarios")
 def scenarios():
     return [{"id": s.id, "name": s.name, "description": s.description} for s in SCENARIOS.values() if not s.hidden]
+
+
+def assistant(request: Request) -> Assistant:
+    return request.app.state.assistant
+
+
+@router.get("/assistant")
+def assistant_status(a: Assistant = Depends(assistant)):
+    """ASK-04: whether the chatbot is set up, so the browser can show the advisor alone."""
+    return {"enabled": a.enabled, "model": a.model if a.enabled else None}
+
+
+@router.post("/assistant")
+async def ask(body: AskBody, request: Request, a: Assistant = Depends(assistant)):
+    forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    key = forwarded or (request.client.host if request.client else "unknown")
+    try:
+        return await a.ask(body, key)
+    except AssistantError as e:
+        return JSONResponse({"detail": e.message, "code": e.code}, status_code=e.status)
 
 
 @router.websocket("/ws")
@@ -435,20 +492,107 @@ def scenario(scenario_id: str, user: User = Depends(require_admin), t: Twin = De
     return t.run_scenario(scenario_id, user.email)
 
 
+# ---- line control (operators and admins) ------------------------------------------------------
+
+
+class NoticeBody(BaseModel):
+    text: str = Field(min_length=3, max_length=240)
+    severity: Literal["info", "warning"] = "info"
+    duration_min: int | None = Field(default=None, ge=5, le=600)
+
+
+@router.post("/control/notices", status_code=201)
+def add_notice(body: NoticeBody, user: User = Depends(require_user), t: Twin = Depends(twin)):
+    """ALT-07/ALT-08, ROLE-03: a plain-language notice to riders on every screen."""
+    return t.add_notice(body.text, body.severity, body.duration_min, user.email)
+
+
+@router.delete("/control/notices/{notice_id}")
+def remove_notice(notice_id: str, user: User = Depends(require_user), t: Twin = Depends(twin)):
+    t.remove_notice(notice_id, user.email)
+    return t.sim_state()
+
+
+class InsertBody(BaseModel):
+    direction_id: Literal[0, 1]
+    in_min: int = Field(default=0, ge=0, le=60)
+
+
+@router.post("/control/trains", status_code=201)
+def insert_train(body: InsertBody, user: User = Depends(require_user), t: Twin = Depends(twin)):
+    """ROLE-04: what-if, send an extra train from the terminal to relieve crowding."""
+    first = t.line.directions[body.direction_id]["stops"][0]["station_id"]
+    start = t.clock.now_ms() + body.in_min * 60_000
+    d = Disruption(id=uuid.uuid4().hex[:8], kind="insert", stop_id=first, direction_id=body.direction_id,
+                   start_ms=start, end_ms=None, note="Extra train")
+    return t.add_disruption(d, user.email).model_dump()
+
+
 @router.get("/admin/audit")
 def audit(limit: int = 200, _: User = Depends(require_admin), t: Twin = Depends(twin)):
     return [e.model_dump() for e in reversed(t.store.audit[-max(1, min(limit, 1000)):])]
 
 
+# ---- crowding from riders and live feeds ---------------------------------------------------------
+
+
+def _rider_limit(request: Request, t: Twin) -> None:
+    """Per-address cap across reports and pings. Run uvicorn with --proxy-headers behind a proxy."""
+    if not t.riders.per_address.allow(request.client.host if request.client else "unknown"):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many requests from this address")
+
+
+def _rider_error(e: RiderError) -> JSONResponse:
+    return JSONResponse({"detail": e.message, "code": e.code}, status_code=e.status)
+
+
+@router.get("/crowd/observed")
+def crowd_observed(t: Twin = Depends(twin)):
+    """Crowding observed on each train by riders and sensors, fused (see aera_twin.crowdsource)."""
+    return {"trips": t.observations.summary(t.clock.now_ms())}
+
+
+@router.post("/crowd/reports", status_code=201)
+def crowd_report(body: RiderReport, request: Request, t: Twin = Depends(twin)):
+    _rider_limit(request, t)
+    try:
+        return t.rider_report(body)
+    except RiderError as e:
+        return _rider_error(e)
+
+
+@router.post("/crowd/pings", status_code=202)
+def crowd_ping(body: LocationPing, request: Request, t: Twin = Depends(twin)):
+    """One opt-in position from a rider's phone. Only a distance along the line is kept."""
+    _rider_limit(request, t)
+    try:
+        return t.rider_ping(body)
+    except RiderError as e:
+        return _rider_error(e)
+
+
+@router.get("/live/feed")
+def live_feed(t: Twin = Depends(twin)):
+    """Whether the operator publishes live train positions, and the trains from it if so."""
+    if not t.feed:
+        return {"feed": None, "vehicles": []}
+    return {"feed": t.feed.status.to_dict(), "vehicles": [asdict(v) for v in t.feed.vehicles]}
+
+
 # ---- HTTP ingest bridge -------------------------------------------------------------------------
+
+
+def _check_ingest_token(request: Request, t: Twin) -> None:
+    sent = request.headers.get("x-ingest-token", "")
+    if t.env.ingest_token and not hmac.compare_digest(sent.encode(), t.env.ingest_token.encode()):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Bad ingest token")
 
 
 @router.post("/ingest/{station_id}/{device_id}/{kind}", status_code=202)
 async def ingest(station_id: str, device_id: str, kind: Literal["event", "telemetry", "status"],
                  request: Request, t: Twin = Depends(twin)):
     """Same contract as MQTT, for bench testing a device without a broker."""
-    if t.env.ingest_token and request.headers.get("x-ingest-token") != t.env.ingest_token:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Bad ingest token")
+    _check_ingest_token(request, t)
     if device_id.startswith("sim-"):
         raise HTTPException(422, "sim- device ids are reserved for the simulator")
     body = await request.body()
@@ -456,6 +600,20 @@ async def ingest(station_id: str, device_id: str, kind: Literal["event", "teleme
     await t.handle_message(f"aera/v1/{station_id}/{device_id}/{kind}", body)
     rejected = t.validator.stats()["rejected_total"] > before
     return {"accepted": not rejected}
+
+
+MAX_SENSOR_BODY = 4096
+
+
+@router.post("/ingest/train/{device_id}", status_code=202)
+async def ingest_train(device_id: Annotated[str, Path(min_length=1, max_length=64, pattern=DEVICE_PATTERN)],
+                       request: Request, t: Twin = Depends(twin)):
+    """An in-train sensor reading (contracts.CarCount), same as MQTT aera/v1/train/{device}/count."""
+    _check_ingest_token(request, t)
+    body = await request.body()
+    if len(body) > MAX_SENSOR_BODY:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Reading too large")
+    return {"accepted": t.apply_car_count(device_id, body)}
 
 
 def _404(what: str):

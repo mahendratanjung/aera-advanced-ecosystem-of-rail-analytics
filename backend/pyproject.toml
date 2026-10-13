@@ -11,10 +11,11 @@ dependencies = [
   "pyjwt>=2.15",
   "aiomqtt>=2.5",
   "httpx>=0.28",
+  "gtfs-realtime-bindings>=3.0.0",
 ]
 
 [dependency-groups]
-dev = ["pytest>=9.1", "pytest-asyncio>=1.4"]
+dev = ["pytest>=9.1", "pytest-asyncio>=1.4", "ruff>=0.14"]
 # Only needed to rebuild the crowding model from data.gov.my files.
 data = ["pandas>=2.3", "pyarrow>=21", "numpy>=2.3"]
 
@@ -25,3 +26,13 @@ pythonpath = ["."]
 
 [tool.uv]
 package = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# B008: FastAPI's Depends() in defaults is the framework's idiom. E501: long lines are allowed.
+# B905: zip(xs, xs[1:]) pairs neighbours on purpose.
+ignore = ["B008", "E501", "B905"]

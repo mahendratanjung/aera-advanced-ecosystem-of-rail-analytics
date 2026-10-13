@@ -14,7 +14,7 @@ ctx="$root/CLAUDE.md"
 [ -f "$ctx" ] || exit 0
 
 changed="$(cd "$root" && find . -type f -newer CLAUDE.md \
-  -not -path './node_modules/*' -not -path '*/node_modules/*' \
+  -not -path './node_modules/*' -not -path '*/node_modules/*' -not -path './.git/*' -not -path './.github/*' \
   -not -path '*/.next/*' -not -path '*/.venv/*' -not -path '*/__pycache__/*' \
   -not -path '*/.pytest_cache/*' -not -path './backend/var/*' -not -path './.claude/*' \
   -not -path './frontend/public/maplibre/*' -not -name '.DS_Store' -not -name '*.tsbuildinfo' \

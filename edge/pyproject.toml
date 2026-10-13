@@ -1,0 +1,13 @@
+[project]
+name = "aera-edge"
+version = "0.1.0"
+description = "On-device software for AERA in-train crowding sensors"
+requires-python = ">=3.11"
+dependencies = []  # the sender and the demo use only the standard library
+
+[project.optional-dependencies]
+# Camera counting. On a Jetson, install the vendor's PyTorch build first.
+cv = ["ultralytics>=8.3", "opencv-python-headless>=4.10"]
+
+[tool.setuptools]
+packages = ["aera_edge"]

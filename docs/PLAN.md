@@ -115,3 +115,39 @@ After a second benchmark against Mini Tokyo 3D the requirements were rethought i
 
 Not done from AERA_UX_V2: TRAIN-04 for delayed trains (held trains already carry a beacon;
 the live feed has no per-train delay yet).
+
+## Delivery 5: other ways, Ask AERA, roles (8 October 2026)
+
+From a gap review against the BRS and UX v2, recorded with new IDs in
+[AERA_V3.md](AERA_V3.md) (`ROUTE-`, `ASK-`, `MAPC-`, `INS-`, `ROLE-`).
+
+| Area | What was built | Where |
+| --- | --- | --- |
+| Other ways to travel | All Rapid Rail lines from the GTFS feed with estimated transfers; a tested route advisor offering wait, go round or bus/e-hailing when a Kelana Jaya ride is blocked | `backend/aera_twin/gtfs/network.py`, `frontend/lib/advisor/`, `/trip` |
+| Ask AERA | Chat on `/ask` and as the desktop map card. A free OpenRouter model chooses tools that the browser runs on the twin; quick answers without a model | `backend/aera_twin/assistant.py`, `frontend/lib/assistant/`, `features/assistant/` |
+| Crowding on the map | Crowding bands on each track, crowding words on station labels, the line as a list, late-train beacons | `GeoMap.tsx`, `geo3d.ts`, `LineList.tsx` |
+| Insights | Answer-first: right now, when my ride is calmer, busiest stretches; charts under "Explore the data", readable and tappable on phones | `features/insights/`, `features/charts/` |
+| Roles | Line control for operators (impact, extra train with predicted relief, notices); admin users, crowding levels and audit log; persona sign-in in development | `features/control/`, `features/admin/AdminPages.tsx`, `/api/control/*` |
+| Phone polish | Sheet drags by its content with flick-to-snap; PWA icons and white manifest; About credits | `Sheet.tsx`, `app/manifest.ts`, `public/icons/` |
+
+Deliberate deviations: other ways go beyond BRS §6.4 (journey planning out of scope) for
+disruptions only; the chatbot moves from Could to Must, kept tied to the twin's tools.
+
+## Delivery 6: live data, rider reports, train sensors (12 October 2026)
+
+Checked what data.gov.my publishes live: vehicle positions for KTMB and Rapid KL buses, none for
+Rapid Rail. Details and the gap list in [LIVE_DATA.md](LIVE_DATA.md).
+
+| Area | What was built | Where |
+| --- | --- | --- |
+| Live feed watcher | Polls the Rapid Rail GTFS Realtime feed, reports it unavailable today, snaps vehicles to the track and compares them with the timetable once it exists | `backend/aera_twin/feeds/gtfs_rt.py`, `/api/live/feed` |
+| Rider crowding | Reports from the train card; opt-in phone locations matched to trains (backend only); daily-rotating pseudonyms, rate limits, outlier rejection, 3-phone minimum | `backend/aera_twin/crowdsource/riders.py`, `/api/crowd/*`, `TrainDetail.tsx` |
+| Train sensors | `CarCount` contract (camera, door counter, load-weigh) over MQTT or HTTP; edge sender with offline queue, YOLO camera counter, demo sender | `contracts.py`, `crowdsource/sensors.py`, `edge/` |
+| Fusion | Inverse-variance blend with a half-life, server and browser using the same rule | `crowdsource/fusion.py`, `frontend/lib/crowd/observed.ts` |
+| Quality gates | Ruff lint, `npm run check`, GitHub Actions CI with production build, Claude Code Stop hook running the checks | `backend/pyproject.toml`, `package.json`, `.github/workflows/ci.yml`, `.claude/hooks/quality-check.sh` |
+
+Not done: a location-sharing switch in the UI; observed crowding on station boards, the My station
+card and Ask AERA (they call `engine.departures` directly; the map, line list and train cards
+blend it); calibration of the model's per-train error and of phone
+penetration against real data.
+

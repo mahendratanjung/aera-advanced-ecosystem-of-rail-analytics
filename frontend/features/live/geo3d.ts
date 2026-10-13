@@ -1,13 +1,16 @@
 /**
  * Geometry for the 3D map: viaduct, station slabs and four-car trains as extrudable
- * ribbons along the GTFS shape. Sizes are real at street zoom and grow to a minimum
- * on-screen size when zoomed out, so the line still reads at whole-network zoom.
+ * ribbons along the GTFS shape. Sizes are real at street zoom, hold a steady on-screen size
+ * in the middle zooms and shrink with the map when zoomed right out (see STEADY_ZOOM).
  */
 
 import type { LineData } from "@/lib/types";
 
 type Pos = [number, number];
 type MultiPolygon = Pos[][][];
+
+/** Anything with a shape and the distance along it of each shape point. */
+export type Track = Pick<LineData, "shape" | "shape_distances">;
 
 /**
  * Tunnelled stretch, metres along the line. The portals sit between Damai and Ampang Park
@@ -21,6 +24,10 @@ const M_PER_DEG_LAT = 110574;
 const REAL = { carLength: 17, carWidth: 2.7, carHeight: 3.4, deck: 12, deckDepth: 1.6, platform: 90 };
 
 export interface Dims {
+  /** Ground metres per screen pixel at this zoom. */
+  px: number;
+  /** Ground metres per design pixel: `px` down to STEADY_ZOOM, then fixed (see shrinkAt). */
+  dp: number;
   carLength: number;
   carGap: number;
   carWidth: number;
@@ -39,23 +46,47 @@ export function metresPerPixel(zoom: number, lat: number): number {
   return (40075016.686 * Math.cos((lat * Math.PI) / 180)) / (512 * 2 ** zoom);
 }
 
+/**
+ * Zoom from which the line and its trains hold a steady on-screen size. Zoomed out further
+ * they keep their size in metres and shrink with the map, as in Mini Tokyo 3D (which holds
+ * line widths steady from zoom 12 to 19), so a whole-line view shows separate trains and a
+ * slim line instead of one solid band.
+ */
+export const STEADY_ZOOM = 13.5;
+
+/** Smallest a train is drawn, in screen pixels: a dot that can still be seen and tapped. */
+const MIN_PX = { carWidth: 3.2, carHeight: 2.4, carLength: 3.2 };
+
+/** How much of the steady on-screen size is kept at a zoom: 1 from STEADY_ZOOM up, halving per zoom level below. */
+export function shrinkAt(zoom: number): number {
+  return 2 ** Math.min(0, zoom - STEADY_ZOOM);
+}
+
 export function dimsAt(zoom: number, lat: number): Dims {
   const px = metresPerPixel(zoom, lat);
-  const carWidth = Math.max(REAL.carWidth, 9 * px);
-  const carLength = Math.max(REAL.carLength, 15 * px);
+  /** Metres per "design pixel": a screen pixel down to STEADY_ZOOM, then fixed in metres. */
+  const dp = px * shrinkAt(zoom);
+  const carWidth = Math.max(REAL.carWidth, 9 * dp, MIN_PX.carWidth * px);
+  const carLength = Math.max(REAL.carLength, 15 * dp, MIN_PX.carLength * px);
   const trackOffset = carWidth * 0.62;
   const deckHalf = trackOffset + carWidth * 0.62;
+  // Zoomed out a platform shrinks to a square mark just wider than the line, as a station
+  // dot on a transit map, instead of a slab as long as a train.
+  const s = shrinkAt(zoom);
+  const platformHalf = deckHalf + carWidth * 0.5 * s;
   return {
+    px,
+    dp,
     carLength,
-    carGap: Math.max(0.8, 0.6 * px),
+    carGap: Math.max(0.8, 0.6 * dp),
     carWidth,
-    carHeight: Math.max(REAL.carHeight, 7 * px),
+    carHeight: Math.max(REAL.carHeight, 7 * dp, MIN_PX.carHeight * px),
     trackOffset,
     deckHalf,
-    deckTop: Math.max(REAL.deck, 7 * px),
-    deckDepth: Math.max(REAL.deckDepth, 2 * px),
-    platformHalf: deckHalf + carWidth * 0.5,
-    platformLength: Math.max(REAL.platform, 4 * carLength + 6 * px),
+    deckTop: Math.max(REAL.deck, 7 * dp),
+    deckDepth: Math.max(REAL.deckDepth, 2 * dp),
+    platformHalf,
+    platformLength: Math.max(REAL.platform, 4 * carLength * s + 6 * dp, 2 * platformHalf),
   };
 }
 
@@ -85,7 +116,7 @@ function indexAt(d: number[], x: number): number {
   return lo;
 }
 
-function lerpAt(line: LineData, x: number, i: number): Pos {
+function lerpAt(line: Track, x: number, i: number): Pos {
   const d = line.shape_distances;
   const [x0, y0] = line.shape[i];
   const [x1, y1] = line.shape[Math.min(i + 1, d.length - 1)];
@@ -94,7 +125,7 @@ function lerpAt(line: LineData, x: number, i: number): Pos {
 }
 
 /** The shape between two distances, including the shape vertices in between. */
-export function pathBetween(line: LineData, from: number, to: number): Pos[] {
+export function pathBetween(line: Track, from: number, to: number): Pos[] {
   const d = line.shape_distances;
   const a = Math.max(0, Math.min(from, to));
   const b = Math.min(d[d.length - 1], Math.max(from, to));
@@ -153,8 +184,11 @@ function feature(coordinates: MultiPolygon, properties: Record<string, unknown>)
 export function trackFeatures(line: LineData, dims: Dims): GeoJSON.FeatureCollection {
   const end = totalLength(line);
   const [t0, t1] = TUNNEL_M;
-  const stripeHalf = dims.carWidth * 0.18;
-  const stripeH = Math.max(0.2, dims.carHeight * 0.06);
+  // Zoomed out the stripe widens to a little past the deck, so the line reads as a line in
+  // its own colour rather than a grey band (Mini Tokyo 3D draws whole lines in line colour).
+  const low = 1 - dims.dp / dims.px;
+  const stripeHalf = dims.carWidth * 0.18 + (dims.deckHalf * 1.2 - dims.carWidth * 0.18) * Math.min(1, low * 1.6);
+  const stripeH = stripeHeight(dims);
   const parts: [number, number, boolean][] = [[0, t0, false], [t1, end, false], [t0, t1, true]];
   return {
     type: "FeatureCollection",
@@ -167,6 +201,44 @@ export function trackFeatures(line: LineData, dims: Dims): GeoJSON.FeatureCollec
       ];
     }),
   };
+}
+
+const stripeHeight = (dims: Dims) => Math.max(0.2, dims.carHeight * 0.06);
+
+/**
+ * MAPC-01: a thin band on each running track, one per stretch between stations, carrying the
+ * crowding level of the train on or next to run that stretch. `loads` is in travel order per
+ * direction, as from CrowdEngine.stretchLoads.
+ */
+export function crowdFeatures(line: LineData, dims: Dims, loads: Record<number, (number | null)[]>, level: (pct: number) => number): GeoJSON.FeatureCollection {
+  const dist = Object.fromEntries(line.stations.map((s) => [s.id, s.distance_m]));
+  const half = dims.carWidth * 0.46;
+  // Above the stripe, which widens under the bands when zoomed out.
+  const h = stripeHeight(dims) * 1.6;
+  const features: Feature[] = [];
+  for (const d of line.directions) {
+    const sign = travelSign(line, d.direction_id);
+    const row = loads[d.direction_id] ?? [];
+    for (let k = 0; k < d.stops.length - 1; k++) {
+      const v = row[k];
+      if (v == null) continue;
+      const a = dist[d.stops[k].station_id];
+      const b = dist[d.stops[k + 1].station_id];
+      const clip = Math.min(dims.platformLength / 2, Math.abs(b - a) / 3);
+      const [lo, hi] = a < b ? [a + clip, b - clip] : [b + clip, a - clip];
+      for (const [x0, x1, ug] of splitTunnel(lo, hi)) {
+        const top = ug ? 0.4 : dims.deckTop;
+        features.push(feature(ribbon(pathBetween(line, x0, x1), sign * dims.trackOffset, half), { level: level(v), ug, base: top, top: top + h }));
+      }
+    }
+  }
+  return { type: "FeatureCollection", features };
+}
+
+function splitTunnel(a: number, b: number): [number, number, boolean][] {
+  const [t0, t1] = TUNNEL_M;
+  const cuts = [a, ...[t0, t1].filter((x) => x > a && x < b), b];
+  return cuts.slice(0, -1).map((x, i) => [x, cuts[i + 1], underground((x + cuts[i + 1]) / 2)]);
 }
 
 /** Station slabs: platforms either side of the tracks, at deck level or at ground for the tunnel. */
@@ -203,10 +275,16 @@ export class TrackFrame {
   private readonly xy: Pos[];
   private readonly d: number[];
 
-  constructor(line: LineData) {
-    const mid = line.stations[Math.floor(line.stations.length / 2)];
-    this.origin = mercator(mid.lon, mid.lat);
-    this.unit = 1 / (40075016.686 * Math.cos((mid.lat * Math.PI) / 180));
+  /** `ref` shares another frame's origin, so every line is drawn in the same local metres. */
+  constructor(line: Track & { stations?: LineData["stations"] }, ref?: { origin: Pos; unit: number }) {
+    if (ref) {
+      this.origin = ref.origin;
+      this.unit = ref.unit;
+    } else {
+      const mid = line.stations![Math.floor(line.stations!.length / 2)];
+      this.origin = mercator(mid.lon, mid.lat);
+      this.unit = 1 / (40075016.686 * Math.cos((mid.lat * Math.PI) / 180));
+    }
     this.d = line.shape_distances;
     this.xy = line.shape.map(([lon, lat]) => this.local(lon, lat));
   }

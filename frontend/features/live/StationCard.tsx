@@ -5,11 +5,14 @@
  * station photo (PIC-01), credited to its author and licence.
  */
 
-import { Check, ShareNetwork, Star, X } from "@phosphor-icons/react/dist/ssr";
+import { ArrowRight, Check, ShareNetwork, Star, Warning, X } from "@phosphor-icons/react/dist/ssr";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CrowdTag } from "@/components/Crowd";
 import { Interchanges, StationCode } from "@/components/StationCode";
+import { blocksAt } from "@/lib/advisor/advisor";
 import type { CrowdEngine } from "@/lib/crowd/model";
+import { useSimNow } from "@/lib/hooks";
 import { useHome } from "@/lib/home";
 import { stationPhoto } from "@/lib/photos";
 import { NO_DISRUPTIONS, useTwin } from "@/lib/store";
@@ -59,6 +62,23 @@ export function ShareButton({ params, title, tone = "light" }: { params: string;
   );
 }
 
+/** ROUTE-03: when trains cannot pass somewhere on the line, point to the other ways. */
+function DisruptedLink({ engine, stationId, home }: { engine: CrowdEngine; stationId: string; home: string | null }) {
+  const disruptions = useTwin((s) => s.sim?.disruptions ?? NO_DISRUPTIONS);
+  const now = useSimNow(15_000);
+  if (!blocksAt(engine, disruptions, now / 1000).length) return null;
+  const to = home && home !== stationId ? home : stationId === "KJ10" ? "KJ15" : "KJ10";
+  return (
+    <Link href={`/trip?from=${stationId}&to=${to}`}
+      className="pressable mb-4 flex items-center gap-3 rounded-2xl p-3 text-[13px] font-semibold"
+      style={{ background: "var(--highlight-soft)", color: "var(--crowd-3-ink)" }}>
+      <Warning size={18} weight="fill" aria-hidden className="shrink-0" />
+      <span className="flex-1">Trains are not running on part of the line. See other ways to travel.</span>
+      <ArrowRight size={16} weight="bold" aria-hidden />
+    </Link>
+  );
+}
+
 export function StationCard({ engine, line, stationId, onClose }: { engine: CrowdEngine; line: LineData; stationId: string; onClose: () => void }) {
   const st = line.stations.find((s) => s.id === stationId);
   const home = useHome((s) => s.id);
@@ -90,6 +110,7 @@ export function StationCard({ engine, line, stationId, onClose }: { engine: Crow
           <PhotoCredit id={st.id} className="block text-white/75" />
         </div>
       </header>
+      <DisruptedLink engine={engine} stationId={st.id} home={home} />
       <StationBoard engine={engine} line={line} stationId={st.id} show3d={false} hideHeader />
     </div>
   );

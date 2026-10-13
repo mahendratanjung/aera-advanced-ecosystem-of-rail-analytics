@@ -11,7 +11,7 @@ from aera_twin.main import create_app
 from aera_twin.runtime import Twin
 from aera_twin.store import Store
 
-ENV = Env(persist=False, jwt_secret="test-secret-that-is-at-least-32-bytes", mqtt_url="", sim_start="now")
+ENV = Env(persist=False, jwt_secret="test-secret-that-is-at-least-32-bytes", mqtt_url="", sim_start="now", gtfs_rt_url="")
 
 
 class FakeTime:
@@ -256,3 +256,26 @@ def test_crowding_model_and_surge(api):
     assert d["kind"] == "surge" and d["multiplier"] == 3.0 and d["stop_id"] == "KJ10"
     alerts = api.get("/api/alerts").json()
     assert any("KLCC" in (a["message"] or "") for a in alerts)
+
+
+def test_operators_publish_notices_and_add_trains(api):
+    r = api.post("/api/control/notices", json={"text": "Lifts at KLCC are closed"})
+    assert r.status_code == 401
+    tok = api.post("/api/auth/login", json={"email": "operator@aera.dev", "password": "aera-operator"}).json()["token"]
+    h = {"Authorization": f"Bearer {tok}"}
+    n = api.post("/api/control/notices", json={"text": "Lifts at KLCC are closed", "duration_min": 30}, headers=h).json()
+    assert [x["id"] for x in api.get("/api/sim").json()["notices"]] == [n["id"]]
+    d = api.post("/api/control/trains", json={"direction_id": 1, "in_min": 2}, headers=h).json()
+    assert d["kind"] == "insert" and d["stop_id"] == "KJ1"
+    assert api.delete(f"/api/control/notices/{n['id']}", headers=h).json()["notices"] == []
+
+
+def test_admin_moves_crowding_levels_and_riders_get_them(api):
+    tok = api.post("/api/auth/login", json={"email": "admin@aera.dev", "password": "aera-admin"}).json()["token"]
+    h = {"Authorization": f"Bearer {tok}"}
+    s = api.get("/api/admin/settings", headers=h).json()
+    assert s["crowd_levels"] == [20, 50, 75, 95]
+    bad = api.put("/api/admin/settings", json={**s, "crowd_levels": [50, 20, 75, 95]}, headers=h)
+    assert bad.status_code == 422
+    ok = api.put("/api/admin/settings", json={**s, "crowd_levels": [25, 55, 80, 100]}, headers=h)
+    assert ok.status_code == 200 and ok.json()["crowd_levels"] == [25, 55, 80, 100]

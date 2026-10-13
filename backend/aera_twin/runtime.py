@@ -21,8 +21,13 @@ from datetime import datetime
 from aera_twin.auth import can_access_station, seed_users
 from aera_twin.bus import make_bus
 from aera_twin.config import Env, Settings, SourceMode
-from aera_twin.contracts import CrossingEvent, Status, SwitchEvent, Telemetry, TrainEvent
+from aera_twin.contracts import CarCount, CrossingEvent, Status, SwitchEvent, Telemetry, TrainEvent
+from aera_twin.crowdsource.fusion import ObservationBook
+from aera_twin.crowdsource.riders import LocationPing, RiderDesk, RiderReport
+from aera_twin.crowdsource.sensors import car_observation, find_train
 from aera_twin.engine.occupancy import OccupancyEngine, ZoneState
+from aera_twin.feeds.gtfs_rt import FeedStatus, FeedWatcher
+from aera_twin.geo import LineProjector
 from aera_twin.history import ZoneHistory
 from aera_twin.ingest.validator import IngestResult, Validator, is_sim_device
 from aera_twin.levels import level_for, percent_of
@@ -34,11 +39,12 @@ from aera_twin.simulator.network import summary as network_summary
 from aera_twin.simulator.scenarios import SCENARIOS, Scenario
 from aera_twin.station import StationModel, load_stations
 from aera_twin.store import Device, Incident, Store, User
-from aera_twin.timetable import KL_TZ, Disruption, Line, load_line, local_hour
+from aera_twin.timetable import KL_TZ, Disruption, Line, TrainState, load_line, local_hour
 
 log = logging.getLogger(__name__)
 TICK_S = 1.0
 LEVEL_WORDS = {"low": "clear", "moderate": "moderate", "busy": "busy", "crowded": "crowded"}
+TRAIN_TOPIC = "aera/v1/train/"
 
 
 class Twin:
@@ -56,6 +62,8 @@ class Twin:
         if env.sim_start and env.sim_start != "now":
             self.clock.jump_to_local_time(env.sim_start)
         self.disruptions: list[Disruption] = []
+        # ROLE-03: plain-language notices operators publish to riders, shown on every screen.
+        self.notices: list[dict] = []
         self.scenario: Scenario = SCENARIOS["normal"]
         self.scenario_started_ms = wall_ms()
 
@@ -77,6 +85,17 @@ class Twin:
         self._last_tick_ms = wall_ms()
         self._tick_n = 0
         self.book.listeners.append(self._on_alert)
+
+        # Crowding observed by riders and train sensors (aera_twin.crowdsource).
+        self.projector = LineProjector(self.line)
+        self.observations = ObservationBook(self.settings.crowdsource.half_life_s)
+        self.riders = RiderDesk(self.line, self.projector, self.observations)
+        self.sensor_rejected: dict[str, int] = {}
+        self._observed_version = -1
+        self._trains_at: float | None = None
+        self._trains: list[TrainState] = []
+        self.feed = (FeedWatcher(env.gtfs_rt_url, self.line, self.projector, self.active_trains, self._on_feed)
+                     if env.gtfs_rt_url else None)
         self._seed_devices()
         self.store.save()
 
@@ -93,11 +112,15 @@ class Twin:
             topic, payload = sim.status(now)
             await self.bus.publish(topic, payload, retain=True)
         self._task = asyncio.create_task(self._loop())
+        if self.feed:
+            self.feed.start()
         log.info("twin running with %d twin station(s), bus=%s", len(self.stations), self.bus.name)
 
     async def stop(self) -> None:
         if self._task:
             self._task.cancel()
+        if self.feed:
+            await self.feed.stop()
         await self.bus.stop()
         self.store.save()
 
@@ -201,6 +224,11 @@ class Twin:
     # ---- inbound messages --------------------------------------------------------------
 
     async def handle_message(self, topic: str, payload: bytes) -> None:
+        if topic.startswith(TRAIN_TOPIC):
+            parts = topic[len(TRAIN_TOPIC):].split("/")
+            if len(parts) == 2 and parts[1] == "count" and parts[0]:
+                self.apply_car_count(parts[0], payload)
+            return
         now = wall_ms()
         r = self.validator.validate(topic, payload, now)
         if r.station_id in self.stations and r.device_id and r.reason != "malformed":
@@ -297,6 +325,7 @@ class Twin:
             await self._publish_commands(sid, sim_ms, now)
 
         if self._tick_n % 5 == 0:
+            self._refresh_observed(sim_ms)
             self.hub.broadcast({"type": "stations", "stations": self.station_summaries(sim_ms)})
             for sid, eng in self.engines.items():
                 self.hub.broadcast({"type": "links", "station_id": sid,
@@ -449,12 +478,13 @@ class Twin:
             "scenario": {"id": self.scenario.id, "name": self.scenario.name, "started_ms": self.scenario_started_ms,
                          "demand_mult": self.scenario.demand_mult},
             "disruptions": [d.model_dump() for d in self.disruptions],
+            "notices": [n for n in self.notices if n["end_ms"] is None or n["end_ms"] > self.clock.now_ms()],
         }
 
     def public_settings(self) -> dict:
         s = self.settings
         return {"thresholds": s.thresholds.model_dump(), "train_capacity": s.train.capacity,
-                "heartbeat_s": s.alerts.heartbeat_s}
+                "heartbeat_s": s.alerts.heartbeat_s, "crowd_levels": s.crowd_levels}
 
     def visible_alerts(self, user: User | None, open_only: bool = False) -> list[dict]:
         out = []
@@ -482,6 +512,8 @@ class Twin:
             "alerts": self.visible_alerts(user, open_only=not staff),
             "user": user.public() if user else None,
             "bus": {"name": self.bus.name, "connected": self.bus.connected},
+            "crowd_observed": self.observations.summary(self.clock.now_ms()),
+            "live_feed": self.feed.status.to_dict() if self.feed else None,
         }
         if staff:
             snap["incidents"] = self.visible_incidents(user)
@@ -569,6 +601,7 @@ class Twin:
         self.validator.settings = new
         self.book.settings = new
         self.crowding.settings = new
+        self.observations.half_life_s = new.crowdsource.half_life_s
         now = wall_ms()
         for sid, eng in self.engines.items():
             self._broadcast_zones(sid, eng.refresh(now))
@@ -607,6 +640,11 @@ class Twin:
 
     def add_disruption(self, d: Disruption, actor: str) -> Disruption:
         self.disruptions.append(d)
+        if d.kind == "insert":
+            # An extra train is good news, not an alert.
+            self.broadcast_sim()
+            self._audit(actor, "control.train.insert", d.id, after=d.model_dump())
+            return d
         stop = {s["id"]: s["name"] for s in self.line.stations}
         a_name = stop.get(d.stop_id, d.stop_id)
         if d.kind == "surge":
@@ -633,12 +671,28 @@ class Twin:
         self.broadcast_sim()
         self._audit(actor, "sim.disruption.remove", disruption_id)
 
+    def add_notice(self, text: str, severity: str, duration_min: int | None, actor: str) -> dict:
+        now = self.clock.now_ms()
+        n = {"id": uuid.uuid4().hex[:8], "text": text.strip(), "severity": severity, "start_ms": now,
+             "end_ms": now + duration_min * 60_000 if duration_min else None, "by": actor}
+        self.notices.append(n)
+        self.broadcast_sim()
+        self._audit(actor, "control.notice.add", n["id"], after=n)
+        return n
+
+    def remove_notice(self, notice_id: str, actor: str) -> None:
+        self.notices = [n for n in self.notices if n["id"] != notice_id]
+        self.broadcast_sim()
+        self._audit(actor, "control.notice.remove", notice_id)
+
     def run_scenario(self, scenario_id: str, actor: str) -> dict:
         sc = SCENARIOS[scenario_id]
         now = wall_ms()
         if sc.reset:
             for d in list(self.disruptions):
                 self.remove_disruption(d.id, actor)
+            self.notices = []
+            self.observations.clear()
             for sid, eng in self.engines.items():
                 for z in eng.zones.values():
                     if not z.available:
@@ -675,6 +729,56 @@ class Twin:
         self.hub.broadcast({"type": "stations", "stations": self.station_summaries()})
         self._audit(actor, "sim.scenario", scenario_id)
         return self.sim_state()
+
+    # ---- crowding observed by riders and sensors -------------------------------------------
+
+    def active_trains(self) -> list[TrainState]:
+        """Trains running now, computed at most once per simulated second."""
+        t = self.clock.now_ms() / 1000
+        if self._trains_at is None or abs(t - self._trains_at) >= 1:
+            self._trains = self.line.active_trains(t, self.disruptions)
+            self._trains_at = t
+        return self._trains
+
+    def _refresh_observed(self, sim_ms: int) -> None:
+        trains = self.active_trains()
+        cfg = self.settings.crowdsource
+        self.riders.refresh(trains, sim_ms, self.settings.train.capacity, cfg)
+        self.observations.prune(sim_ms, {t.trip_id for t in trains})
+        if self.observations.version != self._observed_version:
+            self._observed_version = self.observations.version
+            self.hub.broadcast({"type": "crowd_observed", "trips": self.observations.summary(sim_ms)})
+
+    def rider_report(self, body: RiderReport) -> dict:
+        sim_ms = self.clock.now_ms()
+        obs = self.riders.report(body, self.active_trains(), sim_ms, self.settings.crowdsource,
+                                 self.settings.crowd_levels)
+        self._refresh_observed(sim_ms)
+        observed = self.observations.observed(obs.trip_id, sim_ms)
+        return {"trip_id": obs.trip_id, "observed": observed.to_dict() if observed else None}
+
+    def rider_ping(self, body: LocationPing) -> dict:
+        trip_id = self.riders.ping(body, self.active_trains(), self.clock.now_ms(), self.settings.crowdsource)
+        return {"on_train": trip_id}
+
+    def apply_car_count(self, device_id: str, payload: bytes) -> bool:
+        """One in-train sensor reading (camera, door counter or load-weigh)."""
+        try:
+            msg = CarCount.model_validate_json(payload)
+        except ValueError:
+            self.sensor_rejected["malformed"] = self.sensor_rejected.get("malformed", 0) + 1
+            return False
+        train = find_train(msg, self.line, self.active_trains())
+        if train is None:
+            self.sensor_rejected["no_train"] = self.sensor_rejected.get("no_train", 0) + 1
+            return False
+        sim_ms = self.clock.now_ms()
+        self.observations.add(car_observation(msg, device_id, train, self.settings.train.capacity, sim_ms))
+        return True
+
+    def _on_feed(self, status: FeedStatus) -> None:
+        log.info("live vehicle feed: %s (%s)", status.state, status.detail)
+        self.hub.broadcast({"type": "live_feed", "feed": status.to_dict()})
 
     def local_time(self) -> str:
         return datetime.fromtimestamp(self.clock.now_ms() / 1000, KL_TZ).strftime("%Y-%m-%d %H:%M:%S")

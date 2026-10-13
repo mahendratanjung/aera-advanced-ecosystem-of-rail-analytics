@@ -5,6 +5,10 @@ import { api } from "./api";
 import { simNowMs } from "./sim/clock";
 import { CrowdEngine, type CrowdModelData } from "./crowd/model";
 import { LineModel } from "./sim/trains";
+import { type NetIndex, type Network, indexNetwork } from "./advisor/network";
+import { layout, withMapNames } from "./network/layout";
+import type { NetCrowdModel } from "./network/crowd";
+import type { SimNetwork } from "./network/trains";
 import { useTwin } from "./store";
 import type { LineData, StationDefinition } from "./types";
 
@@ -57,6 +61,21 @@ export function useCrowd(lineId = "KJ") {
   return { line, model, engine, error: lineError ?? res.error };
 }
 
+let netCache: Promise<Network> | null = null;
+
+/** Every Rapid Rail line, for the route advisor. Indexed once. */
+export function useNetwork(): { ix: NetIndex | null; error: string | null } {
+  const res = useAsync("rapid", () => {
+    if (!netCache) {
+      netCache = api<Network>("/network");
+      netCache.catch(() => (netCache = null));
+    }
+    return netCache;
+  });
+  const ix = useMemo(() => (res.data ? indexNetwork(res.data) : null), [res.data]);
+  return { ix, error: res.error };
+}
+
 export function useStationDefinition(stationId: string | null) {
   const res = useAsync(stationId, () => {
     const id = stationId!;
@@ -99,4 +118,32 @@ export function useMediaQuery(query: string): boolean {
 
 export function useReducedMotion(): boolean {
   return useMediaQuery("(prefers-reduced-motion: reduce)");
+}
+
+let trainsCache: Promise<SimNetwork> | null = null;
+
+/** Timetables for every line other than the Kelana Jaya Line (TRAINS-01). Loaded once. */
+export function useSimNetwork(): { net: SimNetwork | null; error: string | null } {
+  const res = useAsync("trains", () => {
+    if (!trainsCache) {
+      trainsCache = api<SimNetwork>("/network/trains").then((n) => withMapNames(layout(), n));
+      trainsCache.catch(() => (trainsCache = null));
+    }
+    return trainsCache;
+  });
+  return { net: res.data, error: res.error };
+}
+
+let netCrowdCache: Promise<NetCrowdModel> | null = null;
+
+/** Typical-week crowding on every other line (NETC-01). Loaded once; null until it arrives or if it is missing. */
+export function useNetCrowd(): NetCrowdModel | null {
+  const res = useAsync("net-crowd", () => {
+    if (!netCrowdCache) {
+      netCrowdCache = api<NetCrowdModel>("/network/model");
+      netCrowdCache.catch(() => (netCrowdCache = null));
+    }
+    return netCrowdCache;
+  });
+  return res.data;
 }

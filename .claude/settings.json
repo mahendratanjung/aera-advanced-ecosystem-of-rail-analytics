@@ -8,6 +8,12 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/context-check.sh",
             "timeout": 15,
             "statusMessage": "Checking CLAUDE.md is up to date"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check.sh",
+            "timeout": 300,
+            "statusMessage": "Running lint, tests and typecheck"
           }
         ]
       }

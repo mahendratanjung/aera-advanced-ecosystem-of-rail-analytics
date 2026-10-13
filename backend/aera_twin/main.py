@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from aera_twin.api.routes import router
+from aera_twin.assistant import Assistant
 from aera_twin.config import Env
 from aera_twin.runtime import Twin
 
@@ -26,6 +27,8 @@ def create_app(env: Env | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         if env.jwt_secret == "dev-only-change-me":
             log.warning("AERA_JWT_SECRET is the development default. Set it before sharing this service.")
+        if not env.ingest_token:
+            log.warning("AERA_INGEST_TOKEN is empty: any device can send sensor readings. Set it before deploying.")
         twin = Twin(env)
         app.state.twin = twin
         await twin.start()
@@ -40,6 +43,7 @@ def create_app(env: Env | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.state.assistant = Assistant(env.openrouter_api_key, env.openrouter_model)
     app.include_router(router)
     return app
 
