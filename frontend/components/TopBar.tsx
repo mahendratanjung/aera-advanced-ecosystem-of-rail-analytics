@@ -13,10 +13,13 @@ import { useView } from "@/lib/view";
 import { activeHref, navFor } from "./nav";
 import { ViewSwitch } from "./ViewSwitch";
 
-/** The AERA mark: a white "A" with a light-blue bullet train running through it as the crossbar. */
+/**
+ * The AERA mark ("Express", brand guideline v1.0): a white "A" with a light-blue bullet train
+ * running through it as the crossbar, trailed by two speed lines. Geometry from brand/build.mjs.
+ */
 export function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
   const id = `aera-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
-  const tile = { fill: "var(--brand-tile-2)" };
+  const train = { fill: "var(--brand-train)" };
   return (
     <svg aria-hidden viewBox="0 0 64 64" className={`shrink-0 text-white ${className}`}>
       <defs>
@@ -26,10 +29,14 @@ export function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
         </linearGradient>
       </defs>
       <rect width="64" height="64" rx="16" fill={`url(#${id})`} />
-      <path d="M19 30.5h18.5c6.5 0 12.5 2.4 17 6.5H19z" style={{ fill: "var(--brand-train)" }} />
-      <path d="M38.6 32.2h4.8c2.2.1 4.2.9 5.8 2.3H38.6z" style={tile} />
-      <rect x="24.4" y="32.3" width="4.6" height="2.2" rx=".7" style={tile} />
-      <path d="M13 46 23.5 17h7L41 46h-6.6L27 24.5 19.6 46z" fill="currentColor" />
+      <rect x="8.5" y="31" width="7" height="2" rx="1" opacity=".7" style={train} />
+      <rect x="5" y="35" width="9.5" height="2" rx="1" opacity=".4" style={train} />
+      <path
+        fillRule="evenodd"
+        style={train}
+        d="M17 31H41C49.25 31 54.8 33.8 56 38H17ZM40.4 32.54H45.5C48.5 32.54 50.9 33.66 52.1 34.64H40.4ZM25.4 32.6H28.8A.8.8 0 0 1 29.6 33.4V34A.8.8 0 0 1 28.8 34.8H25.4A.8.8 0 0 1 24.6 34V33.4A.8.8 0 0 1 25.4 32.6Z"
+      />
+      <path d="M12 48L24 15H31L43 48H36L27.5 24.63L19 48Z" fill="currentColor" />
     </svg>
   );
 }

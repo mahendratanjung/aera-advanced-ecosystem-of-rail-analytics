@@ -23,6 +23,8 @@ this file. Update "Current state" when facts change and add one entry to "Sessio
   (ruff, backend + edge pytest, frontend tests, tsc) when code changed; CI also builds.
 - Layout: top-level `frontend/` (Next.js) and `backend/` (FastAPI), not `apps/*`.
 - Keep colours, fonts, radii, shadows and motion in `frontend/styles/theme.css` only.
+- Logo: **Express** (chosen 19 Oct 2026, `brand/guideline/AERA_Brand_Guideline.pdf`). The
+  geometry lives in `brand/build.mjs` and `LogoMark` (`components/TopBar.tsx`); change both together.
 - Design direction (user's choice, 7 Oct 2026): bright modern mobile-app look on a **white
   background**, colourful but professional. Plus Jakarta Sans everywhere (tabular figures for
   times). Transit blue primary, cyan and orange accents, line red only for line identity.
@@ -120,6 +122,7 @@ station-zone features are **parked** (team decision, 7 Oct 2026), not deleted.
 | Rider reports/locations, train sensors, fusion | `backend/aera_twin/crowdsource/`, `/api/crowd/*`, `/api/ingest/train/{device}`, `frontend/lib/crowd/observed.ts` |
 | Edge sensor software (sender, YOLO counter, demo) | `edge/aera_edge/`, `edge/tests/` |
 | Charts (SVG, hover, sr-only tables) | `frontend/features/charts/` |
+| Brand kit: Express logo files, mockups, guideline PDF (one generator) | `brand/` (`node brand/build.mjs`, also writes the app icons) |
 | Parked IoT/old UI and the old strip map (excluded from build) | `frontend/_parked/` |
 | Parked IoT backend (still tested) | `backend/aera_twin/{engine,rules,ingest}/`, `data/stations/KJ20.json` |
 
@@ -216,6 +219,8 @@ Dev logins: admin@aera.dev / aera-admin, operator@aera.dev / aera-operator.
   operator views, Control room line strip, Analytics, rebuilt Plan and Busy times. Checked in
   headless Chrome at 1440 px and an emulated 390 px phone (no sideways scroll); 89 backend + 5
   edge + 50 frontend tests, lint and typecheck passing.
+- Brand (19 Oct 2026): Express logo adopted in the app; `brand/` holds the logo pack (SVG/PNG/PDF/ICO),
+  mockups and the 14-page `AERA_Brand_Guideline.pdf`, all from `node brand/build.mjs`.
 - Open decisions: crowding on roof/skirt vs whole-car tint; photo licences for the pitch
   video; TRAIN-04 beacons for delayed trains (feed has no per-train delay);
   crowding thresholds/wording; per-car split is modelled not measured;
@@ -225,6 +230,29 @@ Dev logins: admin@aera.dev / aera-admin, operator@aera.dev / aera-operator.
 ## Session log
 
 Newest first. One short entry per chat: date, what changed, anything left unfinished.
+
+- **2026-10-19** Word report template (`brand/word/`): four border proposals, then four frame
+  variants; user chose A1 plain frame. `build_word.py` writes `.dotx`, blank and sample `.docx`
+  with native-shape frame, mark, PAGE pill, AERA styles and embedded Plus Jakarta Sans
+  (ExtraBold as its own family for headings). Checked in Word for Mac. Open: Word for Mac loaded
+  the embedded ExtraBold on a first open but not on a later rebuild in the same session (session
+  cache?); installing `brand/word/fonts/` avoids it. Not checked on Windows.
+
+- **2026-10-19** Guideline trimmed on user request: cover shows only "Brand guideline" and the
+  version, footers read "AERA Brand Guideline" / "Page n", history, exploration, selection and
+  files pages removed (14 pages).
+
+- **2026-10-19** Express chosen as the logo. Other options deleted (kept only as a record in
+  `brand/history/`). New `brand/` kit from one generator: 16 SVG versions/lockups (outlined
+  wordmark), PNG, PDF, favicon.ico, 8 mockups, live-app screenshots, and an 18-page brand
+  guideline PDF with the logo's history and selection. App `LogoMark`, `icon.svg`, phone icons and
+  favicon now Express. Open: printer proof for CMYK, wordmark licence note (OFL) if shipped.
+
+- **2026-10-17** Logo options for the brand guideline in `brand/logo-options/`: six directions
+  grown from the Bullet A (Express, Four Cars, Twin, Interchange, Counter, Rush Hour), each with
+  meaning and risks, SVGs on tile and on white, a stakeholder board (`index.html`) and README
+  (name history: Latin *aera*, counters). Recommended Express + Four Cars motif. Open: team
+  choice, then swap `LogoMark`, `icon.svg`, PNG icons and favicon; write the full guideline.
 
 - **2026-10-14** "Improve more": network model now splits riders over close alternative routes
   (logit), advisor legs on other lines carry crowding, Plan takes any Rapid Rail station (cross-line
