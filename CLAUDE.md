@@ -76,7 +76,8 @@ station-zone features are **parked** (team decision, 7 Oct 2026), not deleted.
 - Basemap (user's choice, 8 Oct 2026, to match Mini Tokyo 3D): **Mapbox GL v3 + Mapbox
   Standard** when `NEXT_PUBLIC_MAPBOX_TOKEN` is set in `frontend/.env.local` (3D trees,
   landmarks, windowed facades, shadows; `lightPreset` dawn/day/dusk/night follows the sim sun;
-  terrain off; POI/transit/road labels off). Free tier is 50k map loads/month; the user wants
+  terrain off; POI/transit/road labels off; always daylight unless the rider turns on "Light
+  follows the clock"). Free tier is 50k map loads/month; the user wants
   it to stay free, so never add anything that creates extra maps. No token or a refused token
   falls back to MapLibre + Carto automatically (`createMap` in `GeoMap.tsx`).
 - 3D map: tilted camera, translucent extruded buildings from the Carto tiles (fallback only), grey
@@ -293,6 +294,8 @@ Newest first. One short entry per chat: date, what changed, anything left unfini
   Supabase. Secrets (DB password, JWT, staff passwords, OpenRouter key) live only in Render's env.
   README has the live URLs. Open for the user: revoke the Render API key and Vercel token used for
   setup, restrict the Mapbox token to the site.
+  Map now defaults to always daylight (`liveSky: false`, saved switches key `aera.mapview.2`):
+  the dawn/dusk presets tinted the map yellow; "Light follows the clock" is still a toggle.
 
 - **2026-11-13** Phone and polish pass on user request: search bar "nearest station" button fixed
   (shared `useNearby`, spinner, messages that show without focus, https note, now on phones too);

@@ -68,7 +68,8 @@ interface UiState {
 
 /** The map switches a rider sets, kept in this browser between visits. */
 type MapView = Pick<UiState, "is3d" | "underground" | "liveSky" | "crowdLayer" | "otherLines">;
-const VIEW_KEY = "aera.mapview";
+// ".2": always-daylight became the default (13 Nov 2026), so older saved switches are not reused.
+const VIEW_KEY = "aera.mapview.2";
 const VIEW_FIELDS = ["is3d", "underground", "liveSky", "crowdLayer", "otherLines"] as const;
 
 function saveView(s: MapView) {
@@ -93,7 +94,9 @@ export const useUi = create<UiState>((set) => ({
   diving: null,
   is3d: true,
   underground: false,
-  liveSky: true,
+  // Always daylight by default: the blue-and-white look (user's choice, 13 Nov 2026). Riders can
+  // turn on "Light follows the clock" for dawn, dusk and night lighting.
+  liveSky: false,
   crowdLayer: true,
   otherLines: true,
   cam: "free",
