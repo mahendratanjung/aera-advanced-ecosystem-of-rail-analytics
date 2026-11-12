@@ -3,16 +3,15 @@
 /**
  * You (YOU-01 to YOU-05): everything personal, without an account. My station, saved rides,
  * location sharing, the welcome tour again, clearing this browser's data, and the pages that
- * do not fit in the phone tab bar (Busy times, Service status, About, staff sign in and the view switch).
+ * do not fit in the phone tab bar (About, staff sign in and the view switch). Reached from the avatar at the top.
  */
 
 import {
-  ArrowRight, ArrowsLeftRight, Broadcast, CaretRight, ChartBar, Clock, Gauge, Gear, Info, MapPin, MapTrifold, Pulse, SignIn, SignOut, Sparkle, Star, Trash,
+  ArrowRight, ArrowsLeftRight, Broadcast, CaretRight, ChatCircleDots, Gauge, Gear, Info, MapPin, MapTrifold, NavigationArrow, SignIn, SignOut, Star, Trash, UserCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Page, Section } from "@/components/Page";
+import { type ReactNode, useEffect, useState } from "react";
 import { ViewSwitch } from "@/components/ViewSwitch";
 import { useShareStatus } from "@/lib/crowd/share";
 import { ago } from "@/lib/format";
@@ -25,15 +24,26 @@ import { useChat } from "@/lib/assistant/chat";
 function Row({ href, icon: Icon, title, note }: { href: string; icon: typeof Info; title: string; note?: string }) {
   return (
     <li>
-      <Link href={href} className="pressable flex items-center gap-3 px-4 py-3 hover:bg-surface-2">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent"><Icon size={18} weight="fill" aria-hidden /></span>
+      <Link href={href} className="pressable flex items-center gap-3 px-4 py-3.5 hover:bg-surface-2">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent"><Icon size={18} weight="fill" aria-hidden /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-semibold text-ink">{title}</span>
-          {note && <span className="block text-[12.5px] text-ink-3">{note}</span>}
+          {note && <span className="block text-[13px] text-ink-3">{note}</span>}
         </span>
         <CaretRight size={16} className="text-ink-3" aria-hidden />
       </Link>
     </li>
+  );
+}
+
+/** A settings group: a small heading over one card of rows, as in phone settings. */
+function Group({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
+  return (
+    <section className="mb-7" aria-label={title}>
+      <h2 className="mb-2 px-1 text-[12px] font-bold uppercase tracking-[0.08em] text-ink-3">{title}</h2>
+      <ul className="card divide-y divide-rule overflow-hidden">{children}</ul>
+      {note && <p className="mt-2 px-1 text-[12.5px] leading-relaxed text-ink-3">{note}</p>}
+    </section>
   );
 }
 
@@ -47,12 +57,13 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
 }
 
 const SHARE_TEXT: Record<string, string> = {
-  off: "Off. Nothing about your location leaves this phone.",
-  waiting: "On. Waiting for your phone's location…",
-  sharing: "On. Sending your position every 20 seconds while AERA is open.",
-  denied: "Location permission was refused. Allow it in your browser settings, or switch this off.",
-  unavailable: "This browser cannot share a location.",
-  error: "On, but the last position could not be sent. AERA will keep trying.",
+  off: "Off. Your location is not shared with AERA.",
+  waiting: "On. Waiting for your device's location…",
+  sharing: "On. An anonymous position is sent every 20 seconds while AERA is open.",
+  denied: "Location access is blocked. Allow it in your browser settings, or turn this off.",
+  unavailable: "This browser does not support location sharing.",
+  // A failed send is retried quietly; the rider sees the normal "on" text (user request).
+  error: "On. An anonymous position is sent every 20 seconds while AERA is open.",
 };
 
 export function YouPage() {
@@ -90,124 +101,130 @@ export function YouPage() {
   };
 
   const staffSection = (
-  <Section title="Staff">
-    <ul className="card divide-y divide-rule overflow-hidden">
+    <Group title="Staff">
       {user ? (
         <>
-          <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
             <span className="min-w-0">
               <span className="block text-[15px] font-semibold text-ink">View</span>
-              <span className="block text-[12.5px] text-ink-3">Rider: what passengers see. Operator: control room and analytics.</span>
+              <span className="block text-[13px] text-ink-3">Rider shows the passenger app; Operator shows Operations and the staff map.</span>
             </span>
             <ViewSwitch />
           </li>
-          <Row href="/control" icon={Gauge} title="Control room" note="Every train, disruption impact, extra trains, notices" />
-          <Row href="/control/analytics" icon={ChartBar} title="Analytics" note="Every line now, the week, demand and method" />
-          {user.role === "admin" && <Row href="/admin" icon={Gear} title="Admin" note="Simulation, users, crowding levels, audit log" />}
+          <Row href="/control" icon={Gauge} title="Operations" note="Alerts, every train, actions, forecast and trends" />
+          {user.role === "admin" && <Row href="/admin" icon={Gear} title="Administration" note="Simulation, users, crowding levels and audit log" />}
           <li>
-            <button type="button" onClick={() => { signOut(); router.refresh(); }} className="pressable flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-ink-2"><SignOut size={18} aria-hidden /></span>
+            <button type="button" onClick={() => { signOut(); router.push("/"); }} className="pressable flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-surface-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface-2 text-ink-2"><SignOut size={18} aria-hidden /></span>
               <span className="flex-1 text-[15px] font-semibold text-ink">Sign out</span>
             </button>
           </li>
         </>
       ) : (
-        <Row href="/login" icon={SignIn} title="Staff sign in" note="For Rapid KL operators and AERA admins" />
+        <Row href="/login" icon={SignIn} title="Staff sign in" note="For line operators and administrators" />
       )}
-    </ul>
-  </Section>
+    </Group>
   );
 
   return (
-    <Page title="You" eyebrow={user ? `Signed in as ${user.email}` : "No account needed"}
-      intro="Your station, your rides and how you help AERA. Everything here stays in this browser.">
+    <main className="enter mx-auto max-w-2xl px-4 pb-16 pt-6 sm:px-6 lg:pt-10">
+      <header className="mb-8 flex items-center gap-4">
+        <span aria-hidden className="hero-gradient flex h-14 w-14 shrink-0 items-center justify-center rounded-full">
+          {user ? <span className="text-[20px] font-extrabold">{user.display_name?.[0] ?? "S"}</span> : <UserCircle size={30} weight="fill" />}
+        </span>
+        <div className="min-w-0">
+          <h1 className="text-[26px] font-extrabold leading-tight tracking-tight text-ink sm:text-[30px]">{user ? user.display_name : "Your settings"}</h1>
+          <p className="text-[14px] leading-snug text-ink-3 [overflow-wrap:anywhere]">{user ? `${user.email} · ${user.role === "admin" ? "Administrator" : "Operator"}` : "No account needed. Settings are saved in this browser."}</p>
+        </div>
+      </header>
+
       {user && staffSection}
 
-      <Section title="My station" note="Shown first on the live map, and used for quick questions to Ask AERA.">
-        <div className="card flex flex-wrap items-center gap-3 p-4">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-highlight-soft text-highlight"><Star size={20} weight="fill" aria-hidden /></span>
-          <label className="min-w-0 flex-1">
-            <span className="sr-only">My station</span>
-            <select value={home} onChange={(e) => setHome(e.target.value)} disabled={!line}
-              className="h-11 w-full rounded-xl border border-rule bg-white px-3 text-[15px] font-semibold text-ink">
+      <Group title="Preferences">
+        <li className="px-4 py-3.5">
+          <label htmlFor="home-station" className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-highlight-soft text-highlight"><Star size={18} weight="fill" aria-hidden /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold text-ink">My station</span>
+              <span className="block text-[13px] text-ink-3">Shown first on the live map and used by Ask AERA</span>
+            </span>
+          </label>
+          <div className="mt-3 flex gap-2 sm:pl-12">
+            <select id="home-station" value={home} onChange={(e) => setHome(e.target.value)} disabled={!line}
+              className="h-11 min-w-0 flex-1 rounded-xl border border-rule-strong bg-white px-3 text-[15px] font-semibold text-ink focus:border-accent focus:outline-none">
               {(line?.stations ?? [{ id: home, name: "Loading…" }]).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-          </label>
-          <Link href={`/?station=${home}`} className="pressable flex h-11 items-center gap-1.5 rounded-full bg-accent px-4 text-[14px] font-bold text-white">
-            <MapPin size={16} weight="fill" aria-hidden />Open
-          </Link>
-        </div>
-      </Section>
-
-      <Section title="Saved rides" note="Save a ride from the planner with the star. Tap one to see its next trains and crowding.">
-        {rides.length === 0 ? (
-          <div className="card p-4 text-[14px] text-ink-2">
-            No saved rides yet. <Link href="/trip" className="font-semibold text-accent">Plan a ride</Link> and tap <Star size={13} weight="fill" className="inline text-highlight" aria-label="the star" /> to keep it here.
+            <Link href={`/?station=${home}`} className="pressable flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-accent px-4 text-[14px] font-bold text-white hover:brightness-110">
+              <MapPin size={16} weight="fill" aria-hidden />View
+            </Link>
           </div>
-        ) : (
-          <ul className="card divide-y divide-rule overflow-hidden">
-            {rides.map((r) => (
-              <li key={`${r.from}-${r.to}`} className="flex items-center gap-3 px-4 py-3">
-                <ArrowsLeftRight size={18} className="shrink-0 text-ink-3" aria-hidden />
-                <Link href={`/trip?from=${r.from}&to=${r.to}`} className="min-w-0 flex-1 text-[15px] font-semibold text-ink hover:text-accent">
-                  {names[r.from] ?? r.from} <ArrowRight size={13} className="inline text-ink-3" aria-label="to" /> {names[r.to] ?? r.to}
-                </Link>
-                <button type="button" onClick={() => toggleRide(r)} aria-label={`Remove ${names[r.from] ?? r.from} to ${names[r.to] ?? r.to}`}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-ink-3 hover:bg-surface-2 hover:text-critical">
-                  <Trash size={17} aria-hidden />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
+        </li>
+      </Group>
 
-      <Section title="Help count crowding" note="AERA's crowding is a prediction. Riders who share their location while on a train let it check that prediction.">
-        <div className="card p-4">
+      <Group title="Saved journeys" note="Save a journey in the planner with the star to see its next trains and crowding here.">
+        {rides.length === 0 ? (
+          <li className="flex items-center gap-3 px-4 py-4 text-[14px] text-ink-2">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-ink-3"><Star size={18} aria-hidden /></span>
+            <span className="flex-1">No saved journeys yet.</span>
+            <Link href="/trip" className="text-[14px] font-semibold text-accent hover:underline">Plan a journey</Link>
+          </li>
+        ) : rides.map((r) => (
+          <li key={`${r.from}-${r.to}`} className="flex items-center gap-3 px-4 py-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent"><ArrowsLeftRight size={18} aria-hidden /></span>
+            <Link href={`/trip?from=${r.from}&to=${r.to}`} className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink hover:text-accent">
+              {names[r.from] ?? r.from} <ArrowRight size={13} className="inline text-ink-3" aria-label="to" /> {names[r.to] ?? r.to}
+            </Link>
+            <button type="button" onClick={() => toggleRide(r)} aria-label={`Remove ${names[r.from] ?? r.from} to ${names[r.to] ?? r.to}`}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-ink-3 hover:bg-surface-2 hover:text-critical">
+              <Trash size={17} aria-hidden />
+            </button>
+          </li>
+        ))}
+      </Group>
+
+      <Group title="Privacy and data">
+        <li className="px-4 py-3.5">
           <div className="flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-2-soft text-accent-2"><Broadcast size={20} weight="fill" aria-hidden /></span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-2-soft text-accent-2"><Broadcast size={18} weight="fill" aria-hidden /></span>
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold text-ink">Share my location while AERA is open</p>
-              <p className="mt-0.5 text-[13px] text-ink-2" aria-live="polite">{SHARE_TEXT[status.state]}</p>
+              <p className="text-[15px] font-semibold text-ink">Contribute crowding data</p>
+              <p className="mt-0.5 text-[13px] text-ink-3" aria-live="polite">{SHARE_TEXT[status.state]}</p>
               {status.state === "sharing" && (
-                <p className="mt-1 text-[12px] text-ink-3">
-                  Last sent {ago(status.lastSent)}. {status.onTrain ? "You were matched to a Kelana Jaya train. Thank you." : "Not on a Kelana Jaya train right now."}
+                <p className="mt-1 text-[12.5px] text-ink-3">
+                  Last sent {ago(status.lastSent)}. {status.onTrain ? "Matched to a Kelana Jaya Line train. Thank you." : "Not on a Kelana Jaya Line train right now."}
                 </p>
               )}
             </div>
-            <Switch on={share} onChange={setShare} label="Share my location while AERA is open" />
+            <Switch on={share} onChange={setShare} label="Contribute crowding data" />
           </div>
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-[12.5px] text-ink-3">
-            <li>Only a distance along the line is kept, for a few minutes. Your phone gets a new anonymous code every day.</li>
-            <li>A train's count is shown only once several phones are on it, so no one can be singled out.</li>
-            <li>Nothing is sent when AERA is in the background or closed.</li>
-          </ul>
-        </div>
-      </Section>
-
-      <Section title="More">
-        <ul className="card divide-y divide-rule overflow-hidden">
-          <Row href="/insights" icon={Clock} title="Busy times" note="When your ride is calmer, and how busy every line is now" />
-          <Row href="/status" icon={Pulse} title="Service status" note="Every line, notices and what AERA can see" />
-          <Row href="/network" icon={MapTrifold} title="Network map" note="All 13 Klang Valley rail lines" />
-          <Row href="/about" icon={Info} title="About AERA" note="Data sources, privacy and the team" />
-        </ul>
-      </Section>
+          <details className="group mt-2 sm:pl-12">
+            <summary className="cursor-pointer list-none text-[13px] font-semibold text-accent hover:underline">How your data is protected</summary>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] leading-relaxed text-ink-2">
+              <li>Only your distance along the line is kept, for a few minutes, under an anonymous code that changes every day.</li>
+              <li>A train&apos;s reported crowding is shown only when several riders are on it, so no one can be identified.</li>
+              <li>Nothing is sent while AERA is in the background or closed.</li>
+            </ul>
+          </details>
+        </li>
+        <li>
+          <button type="button" onClick={clearAll} className="pressable flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-critical/5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-critical/10 text-critical"><Trash size={18} aria-hidden /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold text-critical">Clear data on this device</span>
+              <span className="block text-[13px] text-ink-3">{cleared ? "Cleared. Settings, saved journeys and chat history were removed." : "My station, saved journeys, sharing and chat history"}</span>
+            </span>
+          </button>
+        </li>
+      </Group>
 
       {!user && staffSection}
 
-      <Section title="This browser">
-        <div className="flex flex-wrap gap-2">
-          <Link href="/welcome" className="pressable inline-flex h-11 items-center gap-1.5 rounded-full border border-rule bg-white px-4 text-[14px] font-semibold text-ink hover:bg-surface-2">
-            <Sparkle size={16} weight="fill" className="text-accent" aria-hidden />See the welcome again
-          </Link>
-          <button type="button" onClick={clearAll}
-            className="pressable inline-flex h-11 items-center gap-1.5 rounded-full border border-critical/40 bg-white px-4 text-[14px] font-semibold text-critical hover:bg-critical/5">
-            <Trash size={16} aria-hidden />Clear my AERA data
-          </button>
-        </div>
-        {cleared && <p role="status" className="mt-2 text-[13px] text-ink-2">Cleared: my station, saved rides, location sharing and the chat.</p>}
-      </Section>
-    </Page>
+      <Group title="More">
+        <Row href="/trip" icon={NavigationArrow} title="Plan a journey" note="The next trains and the least crowded one to board" />
+        <Row href="/ask" icon={ChatCircleDots} title="Ask AERA" note="Questions about trains, crowding and routes" />
+        <Row href="/network" icon={MapTrifold} title="Network map" note="All 13 Klang Valley rail lines" />
+      </Group>
+
+    </main>
   );
 }

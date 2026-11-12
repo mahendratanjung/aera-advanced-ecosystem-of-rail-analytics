@@ -1,16 +1,17 @@
 "use client";
 
 /**
- * Analytics (operator view, VIEW-03): the charts behind the predictions, for staff who plan
- * service. Every line now, the Kelana Jaya Line through the week and along its length, demand
- * over time and how the model is built. Riders get the short answers on Busy times instead.
+ * Trends (operator view, VIEW-03, now OPS-08): the charts behind the predictions, for staff who
+ * plan service. Every line now, the Kelana Jaya Line through the week and along its length,
+ * demand over time and how the model is built. Shown as the last section of Operations; riders
+ * get the short answers on station cards and in the planner instead.
  */
 
 import { useMemo, useState } from "react";
 import { CrowdScale, CrowdTag } from "@/components/Crowd";
 import { Label, Select } from "@/components/Field";
 import { LineBadge } from "@/components/LineBadge";
-import { Page, Section } from "@/components/Page";
+import { Section } from "@/components/Page";
 import { EmptyState, Skeleton } from "@/components/States";
 import { WeekHeatmap } from "@/features/charts/Heatmap";
 import { HourBars } from "@/features/charts/HourBars";
@@ -19,7 +20,6 @@ import { TrendChart } from "@/features/charts/TrendChart";
 import { pctShort } from "@/lib/crowd/levels";
 import { type CrowdEngine, hourOf, weekdayOf } from "@/lib/crowd/model";
 import { hh } from "@/lib/crowd/when";
-import { useRequireRole } from "@/lib/guard";
 import { useCrowd, useNetCrowd, useSimNow } from "@/lib/hooks";
 import type { LineData } from "@/lib/types";
 import { useLinesNow } from "./linesNow";
@@ -103,7 +103,7 @@ function BusiestToday({ engine, line, t }: { engine: CrowdEngine; line: LineData
       {top.map((x) => (
         <li key={`${x.dir}:${x.seg}`} className="card p-4">
           <p className="text-[15px] font-bold leading-tight text-ink">{segName(x.dir, x.seg)}</p>
-          <p className="mt-0.5 text-[12px] text-ink-3">Towards {heads[x.dir]} · worst around <span className="num">{hh(x.hour)}</span></p>
+          <p className="mt-0.5 text-[12px] text-ink-3">Towards {heads[x.dir]} · Worst around <span className="num">{hh(x.hour)}</span></p>
           <div className="mt-2"><CrowdTag loadPct={x.peak} size="sm" showPct /></div>
           <div className="mt-2"><HourBars values={x.values} nowHour={hourOf(t)} label={`Typical crowding by hour on ${segName(x.dir, x.seg)}`} /></div>
         </li>
@@ -112,8 +112,7 @@ function BusiestToday({ engine, line, t }: { engine: CrowdEngine; line: LineData
   );
 }
 
-export function Analytics() {
-  const { user, ready } = useRequireRole("operator");
+export function Trends() {
   const { line, engine, error } = useCrowd("KJ");
   const netModel = useNetCrowd();
   const now = useSimNow(60_000);
@@ -135,9 +134,8 @@ export function Analytics() {
     return { median, boards };
   }, [engine, line]);
 
-  if (!ready || !user) return <Page title="Analytics"><p className="text-ink-2">Checking your session…</p></Page>;
-  if (error) return <Page title="Analytics"><EmptyState title="Analytics are unavailable" body={error} /></Page>;
-  if (!line || !engine || !stats) return <Page wide title="Analytics"><Skeleton className="h-96" /></Page>;
+  if (error) return <EmptyState title="Trends are unavailable" body={error} />;
+  if (!line || !engine || !stats) return <Skeleton className="h-96" />;
 
   const names = Object.fromEntries(line.stations.map((s) => [s.id, s.name]));
   const heads = Object.fromEntries(line.directions.map((d) => [d.direction_id, d.headsign]));
@@ -154,9 +152,9 @@ export function Analytics() {
   const m = engine.data;
 
   return (
-    <Page wide title="Analytics" eyebrow="Operator view"
-      intro={<>About <strong className="num text-ink">{Math.round(stats.median / 1000)}k</strong> journeys ride the Kelana Jaya Line on a typical weekday. Crowding is predicted from data.gov.my gate data.</>}>
-      <div role="tablist" aria-label="Analytics" className="-mx-4 mb-6 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+    <div>
+      <p className="mb-4 text-[14px] text-ink-2">About <strong className="num text-ink">{Math.round(stats.median / 1000)}k</strong> journeys ride the Kelana Jaya Line on a typical weekday. Crowding is predicted from data.gov.my gate data.</p>
+      <div role="tablist" aria-label="Trends" className="-mx-4 mb-6 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
         <div className="flex gap-1 rounded-full bg-surface-2 p-1">
           {TABS.map((x) => (
             <button key={x.id} type="button" role="tab" aria-selected={tab === x.id} onClick={() => setTab(x.id)}
@@ -251,6 +249,6 @@ export function Analytics() {
           </div>
         </Section>
       )}
-    </Page>
+    </div>
   );
 }

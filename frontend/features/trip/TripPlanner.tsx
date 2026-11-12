@@ -4,7 +4,7 @@
  * Plan a ride (PLAN-01 to PLAN-04), phone first. One question, one answer: which train to take
  * between two Kelana Jaya stations. The answer card comes first (take the next train, or wait a
  * few minutes for a calmer one), then the next trains as a short list, then one line on when
- * this ride is usually calmer. Charts live on Busy times.
+ * this ride is usually calmer. 
  */
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -21,6 +21,7 @@ import { type TripOption, calmestOption, typicalRide, weekdayOf } from "@/lib/cr
 import { list, windows } from "@/lib/crowd/when";
 import { klTime } from "@/lib/format";
 import { useHome } from "@/lib/home";
+import { NEAR_KM, nearestStation, useNearby } from "@/lib/nearby";
 import { useCrowd, useNetCrowd, useNetwork, useSimNow } from "@/lib/hooks";
 import type { Advice } from "@/lib/advisor/advisor";
 import type { NetIndex } from "@/lib/advisor/network";
@@ -70,7 +71,7 @@ function Answer({ best, first, t, line, dir, from, names, to, later }: {
   const wait = Math.max(0, Math.round((best.depart - t) / 60));
   const isNext = best === first;
   const headline = isNext
-    ? c.level <= 2 ? "Take the next train" : "Take the next train. The ones soon after are no calmer"
+    ? c.level <= 2 ? "Take the next train" : "Take the next train. The following trains are no less crowded"
     : `Wait ${Math.max(1, Math.round((best.depart - first.depart) / 60))} min for a calmer train`;
   return (
     <section aria-label="Our suggestion" className="mt-4 overflow-hidden rounded-card shadow-card" style={{ background: crowdSoftVar(c.level) }}>
@@ -80,7 +81,7 @@ function Answer({ best, first, t, line, dir, from, names, to, later }: {
           <div>
             <p className="num text-[40px] font-extrabold leading-none tracking-tight text-ink">{klTime(best.depart * 1000)}</p>
             <p className="mt-1.5 text-[13.5px] text-ink-2">
-              {wait === 0 ? "Leaving now" : `In ${wait} min`} · arrive <span className="num font-bold text-ink">{klTime(best.arrive * 1000)}</span> · {best.minutes} min
+              {wait === 0 ? "Leaving now" : `In ${wait} min`} · Arrive <span className="num font-bold text-ink">{klTime(best.arrive * 1000)}</span> · {best.minutes} min
             </p>
           </div>
           <div className="flex flex-col items-center gap-1 rounded-2xl bg-white/75 px-3 py-2">
@@ -98,8 +99,8 @@ function Answer({ best, first, t, line, dir, from, names, to, later }: {
       </div>
       <p className="border-t border-black/5 bg-white/60 px-4 py-2.5 text-[13px] text-ink-2">
         {c.hint} at the busiest point.
-        {!isNext && <> The next train, at <span className="num font-semibold text-ink">{klTime(first.depart * 1000)}</span>, will be {crowdOf(first.peak).name.toLowerCase()}.</>}
-        {later && <> If you can wait, trains get {crowdOf(later.peak).name.toLowerCase()} from <span className="num font-semibold text-ink">{klTime(later.depart * 1000)}</span>.</>}
+        {!isNext && <> The next train, at <span className="num font-semibold text-ink">{klTime(first.depart * 1000)}</span>, will be {crowdOf(first.peak).name}.</>}
+        {later && <> If you can wait, trains are {crowdOf(later.peak).name} from <span className="num font-semibold text-ink">{klTime(later.depart * 1000)}</span>.</>}
       </p>
     </section>
   );
@@ -126,7 +127,7 @@ function TrainRow({ o, t, best, line, dir, from }: { o: TripOption; t: number; b
       {open && (
         <div className="px-4 pb-3">
           <RideBar o={o} line={line} dir={dir} from={from} />
-          <p className="mt-1.5 text-[12px] text-ink-3">Each piece is one stretch of your ride, coloured by how full the train is there.</p>
+          <p className="mt-1.5 text-[12px] text-ink-3">Each segment is one stretch of your journey, coloured by predicted crowding.</p>
         </div>
       )}
     </li>
@@ -153,7 +154,7 @@ function CrossLine({ advice, t }: { advice: Advice | null; t: number }) {
   if (!advice) return <Skeleton className="mt-5 h-40" />;
   if (advice.block) return null; // OtherWays above already shows these
   const options = [...advice.options].sort((a, b) => a.arrive - b.arrive);
-  if (!options.length) return <div className="mt-5"><EmptyState title="No way found at this time" body="Trains run from about 06:00 to midnight. Try a later time." /></div>;
+  if (!options.length) return <div className="mt-5"><EmptyState title="No route available at this time" body="Trains run from about 06:00 to midnight. Try a later time." /></div>;
   return (
     <section className="mt-5" aria-labelledby="ways">
       <h2 id="ways" className="mb-2 text-[17px] font-bold text-ink">{options.length > 1 ? "Ways to get there" : "Your ride"}</h2>
@@ -180,7 +181,13 @@ export function TripPlanner() {
   useEffect(() => {
     if (line) loadHome(line.stations.map((s) => s.id));
   }, [line, loadHome]);
-  const from = params.get("from") ?? home;
+  // LIVE-01: with no ride picked, start from the station near the rider when the phone says where it is.
+  const pos = useNearby((st) => st.pos);
+  useEffect(() => {
+    void useNearby.getState().locate(false);
+  }, []);
+  const near = pos && line ? nearestStation(line.stations, pos) : null;
+  const from = params.get("from") ?? (near && near.km <= NEAR_KM ? near.station.id : home);
   const to = params.get("to") ?? (from === "KJ15" ? "KJ10" : "KJ15");
   const [later, setLater] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -302,13 +309,12 @@ export function TripPlanner() {
                 )}
               </section>
 
-              <Link href={`/insights?from=${from}&to=${to}`} className="pressable mt-5 flex items-start gap-3 rounded-card bg-accent-soft p-4 text-[14px] text-ink hover:bg-accent-soft/70">
+              <p className="mt-5 flex items-start gap-3 rounded-card bg-accent-soft p-4 text-[14px] text-ink">
                 <Lightbulb size={20} weight="fill" className="mt-0.5 shrink-0 text-accent" aria-hidden />
                 <span className="min-w-0 flex-1">
-                  {calm.length ? <>This ride is usually calmer <strong>{list(calm)}</strong>.</> : <>This ride is busy most of the day.</>}
-                  <span className="mt-0.5 block text-[12.5px] font-semibold text-accent">See busy times <ArrowRight size={12} weight="bold" className="inline" aria-hidden /></span>
+                  {calm.length ? <>This journey is usually quieter <strong>{list(calm)}</strong>.</> : <>This journey is busy for most of the day.</>}
                 </span>
-              </Link>
+              </p>
             </>
           )}
         </>

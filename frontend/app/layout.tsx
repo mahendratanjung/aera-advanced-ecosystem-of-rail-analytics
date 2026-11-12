@@ -16,6 +16,10 @@ export const metadata: Metadata = {
   title: { default: `${BRAND.name} · ${BRAND.longName}`, template: `%s · ${BRAND.name}` },
   description: BRAND.tagline,
   applicationName: BRAND.name,
+  // Set NEXT_PUBLIC_SITE_URL to the deployed address so link previews use absolute URLs.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  openGraph: { type: "website", siteName: BRAND.name, title: `${BRAND.name} · ${BRAND.longName}`, description: BRAND.tagline, locale: "en_MY" },
+  twitter: { card: "summary", title: `${BRAND.name} · ${BRAND.longName}`, description: BRAND.tagline },
   appleWebApp: { capable: true, title: BRAND.name, statusBarStyle: "default" },
   icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }], apple: "/icons/apple-touch-icon.png" },
 };

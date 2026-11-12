@@ -17,7 +17,7 @@ import { subscribe } from "@/lib/crowd/feed";
 import type { CrowdEngine } from "@/lib/crowd/model";
 import { useNetCrowd, useSimNow } from "@/lib/hooks";
 import { netTrainLoad } from "@/lib/network/crowd";
-import { FONT, FONT_NODE, LINE_W, type LaidLine, type Layout, type Place, pointAt, slice, stationFor } from "@/lib/network/layout";
+import { LINE_W, type LaidLine, type Layout, type Place, pointAt, slice, stationFor } from "@/lib/network/layout";
 import { type SimNetwork, trainsAt } from "@/lib/network/trains";
 import type { Pt } from "@/lib/network/schematic";
 import { NO_DISRUPTIONS, useTwin } from "@/lib/store";
@@ -42,8 +42,118 @@ interface View {
   ty: number;
 }
 
-type Lod = 0 | 1 | 2;
-const lodOf = (k: number): Lod => (FONT * k >= 5 ? 2 : FONT_NODE * k >= 4.4 ? 1 : 0);
+
+/** Smallest a station name is drawn on screen, in pixels (phones see the whole map at once). */
+const MIN_LABEL_PX = 8;
+
+interface ShownLabel {
+  x: number;
+  y: number;
+  size: number;
+  anchor: "start" | "middle" | "end";
+  lines: string[];
+  bold: boolean;
+}
+
+/**
+ * Station names at the current zoom (user feedback, 13 Nov 2026: on phones the whole-map view
+ * had no names). Each name is drawn at least MIN_LABEL_PX tall; names are placed in order of
+ * importance (interchanges, then termini, then the rest) and any that would overlap one
+ * already placed is left out, so zooming in brings more names in without clutter.
+ */
+interface Box {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/**
+ * What an enlarged name must not cover: points along every line (spaced well under a line
+ * width, padded by half the line), each station marker and each line-number badge. Built once.
+ */
+function obstaclesOf(lay: Layout): { points: Pt[]; boxes: { key: string; b: Box }[] } {
+  const points: Pt[] = [];
+  const step = LINE_W * 0.6;
+  for (const l of lay.lines) {
+    for (let i = 1; i < l.pts.length; i++) {
+      const [ax, ay] = l.pts[i - 1];
+      const [bx, by] = l.pts[i];
+      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / step));
+      for (let j = 0; j <= n; j++) points.push([ax + ((bx - ax) * j) / n, ay + ((by - ay) * j) / n]);
+    }
+  }
+  const boxes = lay.places.map((p) => ({ key: p.key, b: { x0: p.box.x, y0: p.box.y, x1: p.box.x + p.box.w, y1: p.box.y + p.box.h } }));
+  for (const l of lay.lines) for (const [x, y] of l.def.badges) boxes.push({ key: "", b: { x0: x - 4.6, y0: y - 4.6, x1: x + 4.6, y1: y + 4.6 } });
+  return { points, boxes };
+}
+
+const hits = (a: Box, b: Box) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+
+function labelsAt(places: Place[], k: number, bounds: Layout["bounds"], obstacles: ReturnType<typeof obstaclesOf>): Map<string, ShownLabel> {
+  const rank = (p: Place) => (p.hub ? 0 : p.stations.length > 1 ? 1 : p.terminus ? 2 : p.label?.bold ? 3 : 4);
+  const order = places.filter((p) => p.label).sort((a, b) => rank(a) - rank(b));
+  const pad = 2 / k;
+  const taken: Box[] = [];
+  const out = new Map<string, ShownLabel>();
+  for (const p of order) {
+    const l = p.label!;
+    const f = Math.max(1, MIN_LABEL_PX / (l.size * k));
+    const w = l.box.w * f;
+    const h = l.box.h * f;
+    // Grow away from the station: keep the edge next to it, or the middle for side labels.
+    const above = l.box.y + l.box.h <= p.box.y + 0.01;
+    const below = l.box.y >= p.box.y + p.box.h - 0.01;
+    const top = above ? l.box.y + l.box.h - h : below ? l.box.y : l.box.y + l.box.h / 2 - h / 2;
+    // A name that would run off the map's edge goes on the other side of its station.
+    let x = l.x;
+    let anchor = l.anchor;
+    const leftOf = (ax: number, an: ShownLabel["anchor"]) => (an === "start" ? ax : an === "end" ? ax - w : ax - w / 2);
+    const outside = (ax: number, an: ShownLabel["anchor"]) => leftOf(ax, an) < bounds.x || leftOf(ax, an) + w > bounds.x + bounds.w;
+    // Enlarged names must not sit on a line, another station or a badge; one that cannot be
+    // placed clear on either side of its station is left out until the map is zoomed in.
+    const clear = (ax: number, an: ShownLabel["anchor"]) => {
+      if (outside(ax, an)) return null;
+      const left = leftOf(ax, an);
+      const b: Box = { x0: left - pad, y0: top - pad, x1: left + w + pad, y1: top + h + pad };
+      if (taken.some((t) => hits(b, t))) return null;
+      if (f > 1) {
+        const m = LINE_W / 2;
+        // The station's own lines and end-of-line badge, right at the station, do not count.
+        const g = Math.max(LINE_W * 2.5, 12 / k);
+        const own: Box = { x0: p.box.x - g, y0: p.box.y - g, x1: p.box.x + p.box.w + g, y1: p.box.y + p.box.h + g };
+        const near = (px: number, py: number) => px > own.x0 && px < own.x1 && py > own.y0 && py < own.y1;
+        if (obstacles.points.some(([px, py]) => !near(px, py) && px > b.x0 - m && px < b.x1 + m && py > b.y0 - m && py < b.y1 + m)) return null;
+        // Badges are never covered. A name may touch the edge of its own line's end badge, but
+        // not its number (the badge sits just past the end-of-line station).
+        const end: Box = { x0: p.box.x - 16, y0: p.box.y - 16, x1: p.box.x + p.box.w + 16, y1: p.box.y + p.box.h + 16 };
+        const core = (o: Box): Box => ({ x0: o.x0 + 3.4, y0: o.y0 + 3.4, x1: o.x1 - 3.4, y1: o.y1 - 3.4 });
+        if (obstacles.boxes.some((o) => o.key !== p.key && hits(b, o.key === "" && p.terminus && hits(o.b, end) ? core(o.b) : o.b))) return null;
+      }
+      return b;
+    };
+    let box = clear(x, anchor);
+    if (!box && f > 1 && anchor !== "middle") {
+      const fx = anchor === "start" ? p.box.x - (l.x - (p.box.x + p.box.w)) : p.box.x + p.box.w + (p.box.x - l.x);
+      const fa = anchor === "start" ? "end" : "start";
+      box = clear(fx, fa);
+      if (box) {
+        x = fx;
+        anchor = fa;
+      }
+    }
+    if (!box) {
+      // At the drawn size the hand-placed layout is kept as it is.
+      if (f > 1) continue;
+      const left = leftOf(x, anchor);
+      box = { x0: left - pad, y0: top - pad, x1: left + w + pad, y1: top + h + pad };
+    }
+    taken.push(box);
+    const size = l.size * f;
+    out.set(p.key, { x, y: top + size * 0.86, size, anchor, lines: l.lines, bold: l.bold });
+  }
+  return out;
+}
 
 function pathOf(pts: Pt[]): string {
   return pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join("");
@@ -97,7 +207,8 @@ export const NetworkMap = forwardRef<MapHandle, {
   const v = useRef<View>({ k: 1, tx: 0, ty: 0 });
   const insetRef = useRef(inset);
   insetRef.current = inset;
-  const [lod, setLod] = useState<Lod>(2);
+  // Zoom, rounded, so names are re-placed only when the zoom really changes.
+  const [kq, setKq] = useState(1);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const onTrainRef = useRef(onTrain);
@@ -107,8 +218,8 @@ export const NetworkMap = forwardRef<MapHandle, {
   const apply = useCallback(() => {
     const { k, tx, ty } = v.current;
     view.current?.setAttribute("transform", `translate(${tx.toFixed(1)} ${ty.toFixed(1)}) scale(${k.toFixed(4)})`);
-    const next = lodOf(k);
-    setLod((l) => (l === next ? l : next));
+    const q = Math.round(Math.log2(k) * 8) / 8;
+    setKq((x) => (x === q ? x : q));
   }, []);
 
   const fitK = useCallback(() => {
@@ -122,7 +233,8 @@ export const NetworkMap = forwardRef<MapHandle, {
 
   const limits = useCallback(() => {
     const f = fitK();
-    return [f * 0.8, Math.max(f * 9, 9)] as const;
+    // No further out than the whole network.
+    return [f, Math.max(f * 9, 9)] as const;
   }, [fitK]);
 
   /** Moves the view so map point `at` shows at the centre of the free area, at zoom k. */
@@ -162,9 +274,23 @@ export const NetworkMap = forwardRef<MapHandle, {
     apply();
   }, [apply, limits]);
 
+  /**
+   * Until the rider pans, zooms or picks something, the map keeps the whole network fitted to
+   * the free area: phones settle their toolbars, the sheet reports its height a moment after the
+   * first layout, and the window can change size (user feedback, 13 Nov 2026: on phones part of
+   * the map was hidden when the page opened).
+   */
+  const auto = useRef(!start);
+  const fitNow = useCallback(() => {
+    const b = lay.bounds;
+    v.current = target([b.x + b.w / 2, b.y + b.h / 2], fitK());
+    apply();
+  }, [apply, fitK, lay, target]);
+
   const fit = useCallback(() => {
     const k = fitK();
     const b = lay.bounds;
+    auto.current = true;
     animateTo(target([b.x + b.w / 2, b.y + b.h / 2], k));
   }, [animateTo, fitK, lay, target]);
 
@@ -173,6 +299,7 @@ export const NetworkMap = forwardRef<MapHandle, {
     zoom: (factor) => {
       const el = box.current;
       if (!el) return;
+      auto.current = false;
       const i = insetRef.current;
       const [lo, hi] = limits();
       const k = Math.max(lo, Math.min(hi, v.current.k * factor));
@@ -181,7 +308,10 @@ export const NetworkMap = forwardRef<MapHandle, {
       const at: Pt = [(cx - v.current.tx) / v.current.k, (cy - v.current.ty) / v.current.k];
       animateTo(target(at, k));
     },
-    focus: (at, minK = 2.2) => animateTo(target(at, Math.max(v.current.k, minK))),
+    focus: (at, minK = 2.2) => {
+      auto.current = false;
+      animateTo(target(at, Math.max(v.current.k, minK)));
+    },
   }), [animateTo, fit, limits, target]);
 
   // First view, and keep the map in its frame when the window changes size.
@@ -195,16 +325,19 @@ export const NetworkMap = forwardRef<MapHandle, {
         if (start) {
           v.current = target(start.at, start.k);
           apply();
-        } else {
-          const b = lay.bounds;
-          v.current = target([b.x + b.w / 2, b.y + b.h / 2], fitK());
-          apply();
+          return;
         }
       }
+      if (auto.current) fitNow();
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [apply, fitK, lay, start, target]);
+  }, [apply, fitNow, start, target]);
+
+  // The free area changed (the sheet moved, a card opened): refit while still on the whole map.
+  useEffect(() => {
+    if (started.current && auto.current) fitNow();
+  }, [inset.top, inset.left, inset.right, inset.bottom, fitNow]);
 
   // Drag, pinch and wheel.
   useEffect(() => {
@@ -220,6 +353,7 @@ export const NetworkMap = forwardRef<MapHandle, {
     };
     const down = (e: PointerEvent) => {
       if (e.button !== 0 && e.pointerType === "mouse") return;
+      auto.current = false;
       cancelAnimationFrame(anim.current);
       el.setPointerCapture(e.pointerId);
       pts.set(e.pointerId, local(e));
@@ -264,6 +398,7 @@ export const NetworkMap = forwardRef<MapHandle, {
     };
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
+      auto.current = false;
       const p = local(e);
       zoomAt(Math.exp(-e.deltaY * (e.ctrlKey ? 0.012 : 0.0018)), p.x, p.y);
     };
@@ -410,7 +545,8 @@ export const NetworkMap = forwardRef<MapHandle, {
     return new Set(lay.places.filter((p) => p.stations.some((s) => s.line.id === focusLine)).map((p) => p.key));
   }, [focusLine, lay]);
 
-  const showLabel = (p: Place) => lod === 2 || (lod === 1 && (p.stations.length > 1 || p.terminus || p.label?.bold));
+  const obstacles = useMemo(() => obstaclesOf(lay), [lay]);
+  const labels = useMemo(() => labelsAt(lay.places, 2 ** kq, lay.bounds, obstacles), [lay, kq, obstacles]);
   const sel = selected ? lay.places.find((p) => p.key === selected) : null;
 
   return (
@@ -456,12 +592,15 @@ export const NetworkMap = forwardRef<MapHandle, {
                     style={{ fill: "var(--net-dot)", stroke: "var(--net-ink)" }} strokeWidth={0.85} />
                 )}
                 <rect x={p.box.x - 3} y={p.box.y - 3} width={p.box.w + 6} height={p.box.h + 6} fill="transparent" />
-                {p.label && showLabel(p) && (
-                  <text x={p.label.x} y={p.label.y} textAnchor={p.label.anchor} fontSize={p.label.size} fontWeight={p.label.bold ? 700 : 500}
-                    style={{ fill: "var(--ink)", paintOrder: "stroke", stroke: "var(--net-paper)" }} strokeWidth={0.9} strokeLinejoin="round">
-                    {p.label.lines.map((t, i) => <tspan key={i} x={p.label!.x} dy={i ? p.label!.size * 1.18 : 0}>{t}</tspan>)}
-                  </text>
-                )}
+                {labels.has(p.key) && (() => {
+                  const l = labels.get(p.key)!;
+                  return (
+                    <text x={l.x} y={l.y} textAnchor={l.anchor} fontSize={l.size} fontWeight={l.bold ? 700 : 500}
+                      style={{ fill: "var(--ink)", paintOrder: "stroke", stroke: "var(--net-paper)" }} strokeWidth={l.size * 0.21} strokeLinejoin="round">
+                      {l.lines.map((t, i) => <tspan key={i} x={l.x} dy={i ? l.size * 1.18 : 0}>{t}</tspan>)}
+                    </text>
+                  );
+                })()}
               </g>
             );
           })}

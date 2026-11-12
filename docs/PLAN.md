@@ -151,3 +151,18 @@ card and Ask AERA (they call `engine.departures` directly; the map, line list an
 blend it); calibration of the model's per-train error and of phone
 penetration against real data.
 
+
+## Delivery 7: answer first, one Operations page, staff sign in (13 November 2026)
+
+Requirements in [AERA_V6.md](AERA_V6.md).
+
+| Area | What was built | Where |
+| --- | --- | --- |
+| Live | Station near the rider (or My station), next train each way car by car; map flies close to that train and follows it; phone map controls in one labelled layers panel | `lib/nearby.ts`, `features/live/GlanceCard.tsx`, `LiveView.tsx`, `MapChrome.tsx` |
+| Navigation | Status page removed; Busy times is a tab; You behind the avatar; staff tabs Operations, Live map, Ask, Admin | `components/nav.ts`, `next.config.ts` |
+| Operations | One page: now, alerts with acknowledge, line, next two hours, act, station, other lines, trends, shift summary | `features/control/LineControl.tsx` |
+| Sign in | Split-screen staff sign in, keep me signed in, Caps Lock warning, throttling after five wrong passwords | `app/login/LoginForm.tsx`, `lib/session.ts`, `api/routes.py` |
+| Ask AERA | OpenRouter key set; free-model fallback chain, forced first tool call, low reasoning, trimmed cut-offs, progress lines, nearby station | `assistant.py`, `lib/assistant/` |
+
+Deliberate deviations: STAT-01..03 retired at the user's request (the Live status chip and
+Operations cover them); acknowledgements are per browser tab until shared ones are built.

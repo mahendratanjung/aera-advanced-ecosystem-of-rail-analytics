@@ -52,6 +52,19 @@ test("sizes hold steady on screen in the middle zooms and shrink with the map be
   const c = onScreen(STEADY_ZOOM - 2);
   assert.ok(c.car < a.car / 2 && c.deck < a.deck / 2, "zoomed out the line and trains are smaller on screen");
   const far = onScreen(8);
-  assert.ok(far.width >= 3 && far.car >= 3, "never smaller than a few pixels");
+  assert.ok(far.width >= 2 && far.car >= 2.5, "never smaller than a couple of pixels");
   assert.ok(c.platform < a.platform / 2, "platforms shrink to a station mark");
+});
+
+test("zoomed out, the Kelana Jaya Line is about as slim as the other lines", () => {
+  // The other lines' viaduct half-width, as `slim().deckHalf` in network3d.ts (which imports
+  // app aliases, so is not loaded here).
+  const otherDeckHalf = (d: { px: number; dp: number }) => Math.max(4, 4 * d.dp, 1.3 * d.px);
+  for (const z of [10, 11, 12]) {
+    const d = dimsAt(z, 3.1);
+    const kj = (2 * d.deckHalf) / d.px;
+    const other = (2 * otherDeckHalf(d)) / d.px;
+    assert.ok(kj >= other, `zoom ${z}: still at least as wide as the others`);
+    assert.ok(kj <= other * 2, `zoom ${z}: KJ deck ${kj.toFixed(1)} px vs others ${other.toFixed(1)} px`);
+  }
 });

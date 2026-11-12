@@ -19,9 +19,9 @@ export interface CrowdInfo {
 export const CROWD: CrowdInfo[] = [
   { level: 1, name: "Quiet", hint: "Plenty of seats", from: 0 },
   { level: 2, name: "Comfortable", hint: "Room to stand", from: 20 },
-  { level: 3, name: "Busy", hint: "Standing, some contact", from: 50 },
+  { level: 3, name: "Busy", hint: "Standing room only", from: 50 },
   { level: 4, name: "Crowded", hint: "Shoulder to shoulder", from: 75 },
-  { level: 5, name: "Packed", hint: "You may not get on", from: 95 },
+  { level: 5, name: "Packed", hint: "Boarding may not be possible", from: 95 },
 ];
 
 export const DEFAULT_BOUNDS = [20, 50, 75, 95];

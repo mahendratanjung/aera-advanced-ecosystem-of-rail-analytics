@@ -10,16 +10,3 @@ export function LineBadge({ line, size = 24, className = "" }: { line: Pick<Line
     </span>
   );
 }
-
-const DATA_TEXT = { live: "Live crowding", timetable: "Timetable", estimate: "Estimated", suspended: "Suspended" } as const;
-
-/** What AERA knows about a line, as a small chip. */
-export function DataChip({ data }: { data: LineDef["data"] }) {
-  const cls = data === "live" ? "bg-accent-soft text-accent" : data === "suspended" ? "bg-critical/5 text-critical" : data === "timetable" ? "bg-surface-2 text-ink-2" : "bg-surface-2 text-ink-3";
-  return (
-    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
-      {data === "live" && <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />}
-      {DATA_TEXT[data]}
-    </span>
-  );
-}

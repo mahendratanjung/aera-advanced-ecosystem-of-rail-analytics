@@ -134,7 +134,7 @@ export function TrainDetail({ engine, line, tripId, onClose }: { engine: CrowdEn
         <p className="num mt-2 text-xs text-ink-3">
           {tr.loadPct >= 100
             ? `Over capacity: about ${people - engine.capacity} more people want this train than fit`
-            : `${pctText(tr.loadPct)}, likely ${Math.floor(tr.loadPct * lo)}–${Math.min(100, Math.floor(tr.loadPct * hi))}% · about ${people} people on board`}
+            : `${pctText(tr.loadPct)}, likely ${Math.floor(tr.loadPct * lo)}–${Math.min(100, Math.floor(tr.loadPct * hi))}% · About ${people} people on board`}
         </p>
         {tr.observed && (
           <p className="mt-1 text-xs font-semibold text-ink-2">Updated with {describeSources(tr.observed)} from this train</p>

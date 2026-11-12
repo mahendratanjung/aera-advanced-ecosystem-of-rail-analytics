@@ -74,7 +74,7 @@ export function TopBar() {
   const ops = view === "operator";
   // The live map is full screen and floats its own controls (MAP-01); the welcome screen
   // has no chrome at all.
-  if (path === "/" || path.startsWith("/welcome")) return null;
+  if (path === "/" || path.startsWith("/login")) return null;
   const items = navFor(view, false, user?.role === "admin");
   const active = activeHref(path, items);
   return (
@@ -105,9 +105,9 @@ export function TopBar() {
           <SimClock dark={ops} />
           <Link href="/me" aria-label={user ? `You, signed in as ${user.email}` : "You: your station, saved rides and settings"}
             aria-current={path.startsWith("/me") ? "page" : undefined}
-            className={`hidden h-10 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold lg:flex ${ops ? "text-ops-ink-2 hover:bg-ops-2" : path.startsWith("/me") ? "bg-accent-soft text-accent" : "text-ink-2 hover:bg-surface-2"}`}>
-            <UserCircle size={26} weight={path.startsWith("/me") ? "fill" : "regular"} aria-hidden />
-            {user ? user.role === "admin" ? "Admin" : "Operator" : "You"}
+            className={`flex h-10 items-center gap-1.5 rounded-full px-1.5 text-sm font-semibold lg:pr-3 ${ops ? "text-ops-ink-2 hover:bg-ops-2" : path.startsWith("/me") ? "bg-accent-soft text-accent" : "text-ink-2 hover:bg-surface-2"}`}>
+            <UserCircle size={28} weight={path.startsWith("/me") ? "fill" : "regular"} aria-hidden />
+            <span className="hidden lg:inline">{user ? user.role === "admin" ? "Admin" : "Operator" : "You"}</span>
           </Link>
         </div>
       </div>

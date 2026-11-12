@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import aera_twin.runtime as runtime_mod
+import aera_twin.simclock as simclock_mod
 from aera_twin.config import Env
 from aera_twin.main import create_app
 from aera_twin.runtime import Twin
@@ -26,6 +27,9 @@ class FakeTime:
 def clock(monkeypatch):
     ft = FakeTime()
     monkeypatch.setattr(runtime_mod, "wall_ms", ft)
+    # The sim clock must follow the same fake time, or the result depends on when the tests run
+    # (before about 06:00 in KL no trains run and the station stays empty).
+    monkeypatch.setattr(simclock_mod, "wall_ms", ft)
     return ft
 
 

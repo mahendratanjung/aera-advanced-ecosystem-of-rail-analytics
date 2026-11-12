@@ -136,6 +136,8 @@ export const mapApi: { current: MapApi | null } = { current: null };
 const TOUR = ["KJ1", "KJ5", "KJ9", "KJ10", "KJ13", "KJ14", "KJ15", "KJ16", "KJ19", "KJ24", "KJ28", "KJ31", "KJ37"];
 
 const VIEW_3D = { pitch: 58, bearing: -20 };
+/** The first view: KLCC LRT in front, the Petronas Towers behind it. */
+const OPENING = { center: [101.7122, 3.1580] as [number, number], zoom: 15.55, pitch: 58, bearing: -135 };
 const VIEW_2D = { pitch: 0, bearing: 0 };
 const NOON: SunPos = { altitude: 62, azimuth: 140 };
 
@@ -241,7 +243,10 @@ export function GeoMap({ line, engine, net, selected, onSelect, selectedTrain, o
   const relight = useRef<() => void>(() => {});
   const [ready, setReady] = useState(false);
   const is3d = useUi((s) => s.is3d);
+  const is3dNow = useRef(is3d);
+  is3dNow.current = is3d;
   const cam = useUi((s) => s.cam);
+  const focusTick = useUi((s) => s.focusTick);
   const underground = useUi((s) => s.underground);
   const liveSky = useUi((s) => s.liveSky);
   const crowdLayer = useUi((s) => s.crowdLayer);
@@ -316,8 +321,15 @@ export function GeoMap({ line, engine, net, selected, onSelect, selectedTrain, o
         const dayPalette = palette;
         let solid = palette;
         let preset: LightPreset = "day";
-        const cam0 = map.cameraForBounds(coreBounds(line), { padding: padding() });
-        if (cam0) map.jumpTo({ ...cam0, zoom: (cam0.zoom ?? 12) + 0.9, ...VIEW_3D });
+        // LIVE-01: open close on KLCC, looking past the station to the Petronas Towers, and drift
+        // slowly round it until a hand or a selection takes the camera.
+        // Phones see the map above the sheet only, so they open a step further out.
+        map.jumpTo({ ...OPENING, zoom: window.innerWidth >= 1024 ? OPENING.zoom : OPENING.zoom - 0.75 });
+        if (!prefersReducedMotion()) {
+          map.once("idle", () => {
+            if (!map.isMoving() && useUi.getState().cam === "free") map.easeTo({ bearing: OPENING.bearing + 28, duration: 40_000, easing: (x) => x });
+          });
+        }
 
         const colour = line.color ?? token("--accent");
         const centre = line.stations[Math.floor(line.stations.length / 2)];
@@ -734,8 +746,9 @@ export function GeoMap({ line, engine, net, selected, onSelect, selectedTrain, o
     const s = line.stations.find((x) => x.id === selected);
     if (!s) return;
     focus.current = { center: [s.lon, s.lat], zoom: Math.max(map.getZoom(), 15) };
-    map.easeTo({ ...focus.current, padding: padNow.current, duration: reduced ? 0 : 800 });
-  }, [ready, selected, line, reduced]);
+    if (focus.current.zoom - map.getZoom() > 2 && !reduced) map.flyTo({ ...focus.current, padding: padNow.current, duration: 2400, curve: 1.3, essential: true });
+    else map.easeTo({ ...focus.current, padding: padNow.current, duration: reduced ? 0 : 800 });
+  }, [ready, selected, line, reduced, focusTick]);
 
   // Picking a train flies to it and keeps it centred until the map is dragged.
   useEffect(() => {
@@ -752,10 +765,13 @@ export function GeoMap({ line, engine, net, selected, onSelect, selectedTrain, o
       const p = pointAt(line, tr.state.distanceM);
       center = [p.lon, p.lat];
     } else center = lonLatAt(nt!.line, nt!.d);
-    // A train keeps moving, so only its zoom is kept; follow mode keeps it centred.
-    focus.current = { zoom: Math.max(map.getZoom(), 16.3) };
-    map.easeTo({ center, ...focus.current, padding: padNow.current, duration: reduced ? 0 : 900 });
-  }, [ready, selectedTrain, selected, line, reduced, net]);
+    // A train keeps moving, so only its zoom is kept; follow mode keeps it centred. Close enough
+    // to see the streets and buildings round it (LIVE-01); from far out the camera flies in.
+    focus.current = { zoom: Math.max(map.getZoom(), 16.4) };
+    const far = focus.current.zoom - map.getZoom() > 2;
+    if (far && !reduced) map.flyTo({ center, ...focus.current, pitch: Math.max(map.getPitch(), is3dNow.current ? 58 : 0), padding: padNow.current, duration: 2600, curve: 1.3, essential: true });
+    else map.easeTo({ center, ...focus.current, padding: padNow.current, duration: reduced ? 0 : 900 });
+  }, [ready, selectedTrain, selected, line, reduced, net, focusTick]);
 
   // TRAINS-02: draw the other lines once their timetables arrive, and show or hide them.
   useEffect(() => {

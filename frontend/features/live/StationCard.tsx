@@ -24,17 +24,9 @@ export function StationImage({ id, className = "", alt = "" }: { id: string; cla
   const p = stationPhoto(id);
   if (!p) return <div aria-hidden className={`bg-line ${className}`} />;
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={p.src} alt={alt} loading="lazy" decoding="async" className={`object-cover ${className}`} />;
-}
-
-export function PhotoCredit({ id, className = "" }: { id: string; className?: string }) {
-  const p = stationPhoto(id);
-  if (!p) return null;
-  return (
-    <a href={p.file} target="_blank" rel="noreferrer" className={`truncate text-[10px] font-medium hover:underline ${className}`}>
-      Photo: {p.author} · {p.license}
-    </a>
-  );
+  // The credit is no longer printed on the card (user request); it stays on hover, as the
+  // CC BY / BY-SA licences ask for attribution (full list in lib/stationPhotos.json).
+  return <img src={p.src} alt={alt} title={`Photo: ${p.author}, ${p.license}`} loading="lazy" decoding="async" className={`object-cover ${className}`} />;
 }
 
 function shareUrl(params: string): string {
@@ -107,7 +99,6 @@ export function StationCard({ engine, line, stationId, onClose }: { engine: Crow
             <Interchanges id={st.id} />
           </div>
           <h2 className="mt-1.5 truncate text-[26px] font-extrabold leading-tight tracking-tight drop-shadow-sm">{st.name}</h2>
-          <PhotoCredit id={st.id} className="block text-white/75" />
         </div>
       </header>
       <DisruptedLink engine={engine} stationId={st.id} home={home} />

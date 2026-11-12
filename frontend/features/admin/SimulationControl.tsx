@@ -116,7 +116,7 @@ export function SimulationControl() {
                     <span className="text-ink">
                       <strong>{ACTIVE_LABEL[d.kind]}</strong> at {name(d.stop_id)}{d.to_stop_id && ` to ${name(d.to_stop_id)}`}
                       {d.kind === "delay" && `, ${Math.round(d.delay_s / 60)} min`}{d.kind === "surge" && `, ${d.multiplier}× boarding`}
-                      <span className="text-ink-3"> · from {klTime(d.start_ms)}{d.end_ms ? ` to ${klTime(d.end_ms)}` : ", until cleared"}</span>
+                      <span className="text-ink-3"> · From {klTime(d.start_ms)}{d.end_ms ? ` to ${klTime(d.end_ms)}` : ", until cleared"}</span>
                     </span>
                     <Button size="sm" variant="ghost" onClick={() => run(() => api(`/admin/sim/disruptions/${d.id}`, { method: "DELETE" }))}>Clear</Button>
                   </li>
@@ -131,7 +131,7 @@ export function SimulationControl() {
             <div>
               <p className="label">Simulated time</p>
               <p className="num text-3xl text-ink">{klTime(now, true)}</p>
-              <p className="text-xs text-ink-3">{klDate(now)} · {sim?.clock.paused ? "paused" : sim?.clock.speed === 1 ? "real speed" : `×${sim?.clock.speed}`}</p>
+              <p className="text-xs text-ink-3">{klDate(now)} · {sim?.clock.paused ? "Paused" : sim?.clock.speed === 1 ? "Real speed" : `×${sim?.clock.speed}`}</p>
             </div>
             <div role="group" aria-label="Speed" className="flex flex-wrap gap-1.5">
               {SPEEDS.map((s) => (

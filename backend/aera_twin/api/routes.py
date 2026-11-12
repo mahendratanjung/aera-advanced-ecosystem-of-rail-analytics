@@ -7,6 +7,7 @@ operator's station (OPS-02). Admin endpoints require the admin role.
 from __future__ import annotations
 
 import hmac
+import time
 import uuid
 from dataclasses import asdict
 from typing import Annotated, Literal
@@ -181,11 +182,51 @@ class LoginBody(BaseModel):
     password: str
 
 
+LOGIN_FAILS = 5
+LOGIN_WINDOW_S = 600
+
+
+class LoginThrottle:
+    """LOGIN-02: after five wrong passwords for one address and email, wait ten minutes."""
+
+    def __init__(self) -> None:
+        self.fails: dict[str, list[float]] = {}
+
+    def _recent(self, key: str, now: float) -> list[float]:
+        q = [x for x in self.fails.get(key, []) if x > now - LOGIN_WINDOW_S]
+        self.fails[key] = q
+        return q
+
+    def wait_s(self, key: str, now: float) -> int:
+        q = self._recent(key, now)
+        return int(q[0] + LOGIN_WINDOW_S - now) + 1 if len(q) >= LOGIN_FAILS else 0
+
+    def fail(self, key: str, now: float) -> None:
+        self._recent(key, now).append(now)
+
+    def clear(self, key: str) -> None:
+        self.fails.pop(key, None)
+
+
+def _throttle(request: Request) -> LoginThrottle:
+    if not hasattr(request.app.state, "login_throttle"):
+        request.app.state.login_throttle = LoginThrottle()
+    return request.app.state.login_throttle
+
+
 @router.post("/auth/login")
-def login(body: LoginBody, t: Twin = Depends(twin)):
-    u = t.store.user_by_email(body.email)
+def login(body: LoginBody, request: Request, t: Twin = Depends(twin)):
+    th = _throttle(request)
+    key = f"{request.client.host if request.client else '?'}|{body.email.strip().lower()}"
+    now = time.time()
+    wait = th.wait_s(key, now)
+    if wait:
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, f"Too many attempts. Try again in {max(1, round(wait / 60))} min.")
+    u = t.store.user_by_email(body.email.strip())
     if not u or not u.active or not verify_password(body.password, u.password_hash):
+        th.fail(key, now)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Email or password is incorrect")
+    th.clear(key)
     return {"token": issue_token(u, t.env.jwt_secret), "user": u.public()}
 
 

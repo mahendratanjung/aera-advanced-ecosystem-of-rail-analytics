@@ -10,7 +10,7 @@
 import { Clock, Info, X } from "@phosphor-icons/react/dist/ssr";
 import { type ReactNode, useEffect, useState } from "react";
 import { CrowdIcon, CrowdTag } from "@/components/Crowd";
-import { DataChip, LineBadge } from "@/components/LineBadge";
+import { LineBadge } from "@/components/LineBadge";
 import { crowdOf, crowdVar } from "@/lib/crowd/levels";
 import { latest, subscribe } from "@/lib/crowd/feed";
 import { klTime } from "@/lib/format";
@@ -100,7 +100,6 @@ export function NetTrainCard({ id, onClose, children }: { id: string; onClose: (
       <div className="mt-3 flex items-start gap-2 text-[12.5px] text-ink-2">
         <Info size={16} className="mt-0.5 shrink-0 text-ink-3" aria-hidden />
         <p>
-          {def && <DataChip data={def.data} />}{" "}
           Position from {sourceText(train.line).replace(/\.$/, "")}.{" "}
           {load !== null
             ? "Crowding is a typical-week prediction from data.gov.my gate data; unlike the Kelana Jaya Line it does not react to delays."

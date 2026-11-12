@@ -147,3 +147,17 @@ a {
   font-size: 10px;
 }
 .maplibregl-ctrl-attrib a, .mapboxgl-ctrl-attrib a { color: var(--ink-2) !important; }
+
+/* Login: trains gliding along the line art (decorative) */
+@keyframes login-train {
+  from { transform: translateX(-70px); }
+  to { transform: translateX(490px); }
+}
+.login-train {
+  animation-name: login-train;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-train { animation: none; transform: translateX(200px); }
+}

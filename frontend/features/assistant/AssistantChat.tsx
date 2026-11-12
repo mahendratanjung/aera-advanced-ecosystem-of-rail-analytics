@@ -15,13 +15,22 @@ import { type Turn, useChat } from "@/lib/assistant/chat";
 import type { AskRole, Card, ToolCtx } from "@/lib/assistant/tools";
 import { useCrowd, useNetCrowd, useNetwork, useSimNetwork, useSimNow } from "@/lib/hooks";
 import { useHome } from "@/lib/home";
+import { NEAR_KM, nearestStation, useNearby } from "@/lib/nearby";
 import { useSession } from "@/lib/session";
 import { simNowMs } from "@/lib/sim/clock";
 import { NO_DISRUPTIONS, useTwin } from "@/lib/store";
 
 /** Builds the tool context from the latest state each time a tool runs. */
 function useToolCtx(): { get: () => ToolCtx | null; ready: boolean } {
-  const { engine } = useCrowd("KJ");
+  const { engine, line } = useCrowd("KJ");
+  const pos = useNearby((s) => s.pos);
+  useEffect(() => {
+    void useNearby.getState().locate(false);
+  }, []);
+  const near = useMemo(() => {
+    const n = pos && line ? nearestStation(line.stations, pos) : null;
+    return n && n.km <= NEAR_KM ? n.station.id : null;
+  }, [pos, line]);
   const { ix } = useNetwork();
   const { net } = useSimNetwork();
   const netCrowd = useNetCrowd();
@@ -32,16 +41,23 @@ function useToolCtx(): { get: () => ToolCtx | null; ready: boolean } {
     if (!engine || !ix) return null;
     const s = useTwin.getState();
     return { ix, engine, t: simNowMs(s.sim?.clock, s.offsetMs) / 1000, disruptions: s.sim?.disruptions ?? NO_DISRUPTIONS,
-      mult: s.sim?.scenario.demand_mult ?? 1, role, home, notices: (s.sim?.notices ?? []).map((n) => n.text), net, netCrowd };
-  }, [engine, ix, role, home, net, netCrowd]);
+      mult: s.sim?.scenario.demand_mult ?? 1, role, home, near, notices: (s.sim?.notices ?? []).map((n) => n.text), net, netCrowd };
+  }, [engine, ix, role, home, near, net, netCrowd]);
   return { get, ready: !!engine && !!ix };
 }
 
 /** Plain text with "- " lists and **bold**, rendered without HTML injection. */
 function Rich({ text }: { text: string }) {
   const inline = (s: string, key: number): ReactNode => {
-    const parts = s.split(/(\*\*[^*]+\*\*)/g);
-    return <span key={key}>{parts.map((p, i) => (p.startsWith("**") && p.endsWith("**") ? <strong key={i} className="font-semibold text-ink">{p.slice(2, -2)}</strong> : p))}</span>;
+    const parts = s.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|_[^_\s][^_]*_|`[^`]+`)/g);
+    return (
+      <span key={key}>
+        {parts.map((p, i) => p.startsWith("**") && p.endsWith("**") && p.length > 4 ? <strong key={i} className="font-semibold text-ink">{p.slice(2, -2)}</strong>
+          : (p.startsWith("*") && p.endsWith("*") && p.length > 2) || (p.startsWith("_") && p.endsWith("_") && p.length > 2) ? <em key={i}>{p.slice(1, -1)}</em>
+          : p.startsWith("`") && p.endsWith("`") && p.length > 2 ? <span key={i} className="font-semibold text-ink">{p.slice(1, -1)}</span>
+          : p)}
+      </span>
+    );
   };
   const blocks: ReactNode[] = [];
   let list: string[] = [];
@@ -150,11 +166,22 @@ function Bubble({ turn, names }: { turn: Turn; names: Record<string, string> }) 
       <div className="mt-0.5 flex items-center gap-1">
         <CopyButton text={turn.text} />
         {turn.quick && turn.quick !== "off" && (
-          <p className="text-[11px] text-ink-3">{turn.quick === "busy" ? "The free AI model is busy, so this is a quick answer." : "The AI model did not answer, so this is a quick answer."}</p>
+          <p className="text-[11px] text-ink-3">{turn.quick === "busy" ? "The AI assistant is busy right now, so this is a standard answer." : "The AI assistant is unavailable right now, so this is a standard answer."}</p>
         )}
       </div>
     </li>
   );
+}
+
+/** The station questions start from: the one near the rider, else My station. */
+function useStartName(): string {
+  const { ix } = useNetwork();
+  const { line } = useCrowd("KJ");
+  const home = useHome((s) => s.id);
+  const pos = useNearby((s) => s.pos);
+  const n = pos && line ? nearestStation(line.stations, pos) : null;
+  const id = n && n.km <= NEAR_KM ? n.station.id : home;
+  return ix?.stop[id]?.name ?? "Taman Jaya";
 }
 
 function useSuggestions(): string[] {
@@ -162,49 +189,48 @@ function useSuggestions(): string[] {
   const disruptions = useTwin((s) => s.sim?.disruptions ?? NO_DISRUPTIONS);
   const role = useSession((s) => s.user?.role);
   const now = useSimNow(30_000);
-  const { ix } = useNetwork();
-  const home = useHome((s) => s.id);
-  const homeName = ix?.stop[home]?.name ?? "Taman Jaya";
+  const homeName = useStartName();
   const blocked = engine ? blocksAt(engine, disruptions, now / 1000).length > 0 : false;
   const out: string[] = [];
-  if (blocked) out.push(`Trains are not running. How do I get from ${homeName} to KLCC?`, "What is happening on the line?");
-  else out.push(`When is the next train at ${homeName}?`, `How full is the ride from ${homeName} to KL Sentral?`);
-  out.push("How busy is the MRT right now?", `When is it quieter to go from ${homeName} to Pasar Seni?`, `How do I get from ${homeName} to Bukit Bintang?`);
+  if (blocked) out.push(`Trains are not running. How do I get from ${homeName} to ${other(homeName, "KLCC", "KL Sentral")}?`, "What is happening on the line?");
+  else out.push(`When is the next train at ${homeName}?`, `How full is the ride from ${homeName} to ${other(homeName, "KL Sentral", "KLCC")}?`);
+  out.push("How busy is the MRT right now?", `When is it quieter to go from ${homeName} to ${other(homeName, "Pasar Seni", "Kelana Jaya")}?`, `How do I get from ${homeName} to Bukit Bintang?`);
   if (role === "operator" || role === "admin") out.unshift("Give me a line overview");
   return out.slice(0, 4);
 }
 
+/** A destination that is not where the rider already is. */
+const other = (home: string, want: string, instead: string) => (home === want ? instead : want);
+
 const CAPABILITIES = [
   { icon: Train, title: "Next trains", ask: (home: string) => `When is the next train at ${home}?` },
-  { icon: UsersThree, title: "How full", ask: (home: string) => `How full is the ride from ${home} to KL Sentral?` },
-  { icon: Lightning, title: "Calmer times", ask: (home: string) => `When is it quieter to go from ${home} to Pasar Seni?` },
-  { icon: Path, title: "Other ways round", ask: (home: string) => `How do I get from ${home} to Bukit Bintang?` },
+  { icon: UsersThree, title: "Crowding", ask: (home: string) => `How full is the ride from ${home} to ${other(home, "KL Sentral", "KLCC")}?` },
+  { icon: Lightning, title: "Quieter times", ask: (home: string) => `When is it quieter to go from ${home} to ${other(home, "Pasar Seni", "Kelana Jaya")}?` },
+  { icon: Path, title: "Alternative routes", ask: (home: string) => `How do I get from ${home} to Bukit Bintang?` },
 ];
 
 /** ASK-07: the empty state on /ask: a greeting and what AERA can answer, each as a question to tap. */
 function Welcome({ onAsk, ready }: { onAsk: (q: string) => void; ready: boolean }) {
   const now = useSimNow(60_000);
-  const { ix } = useNetwork();
-  const home = useHome((s) => s.id);
-  const homeName = ix?.stop[home]?.name ?? "Taman Jaya";
+  const homeName = useStartName();
   const h = (((now / 1000 + 8 * 3600) % 86400) + 86400) % 86400 / 3600;
   const hello = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
   return (
-    <div className="flex flex-col items-center px-1 pb-4 pt-4 text-center sm:pt-10">
-      <span aria-hidden className="hero-gradient flex h-16 w-16 items-center justify-center rounded-[22px] shadow-lg"><Sparkle size={30} weight="fill" /></span>
-      <p className="mt-4 text-[26px] font-extrabold tracking-tight text-ink sm:text-[30px]">{hello}. Where are you going?</p>
-      <p className="mt-1 max-w-md text-[14px] leading-relaxed text-ink-2">
-        I answer from AERA&apos;s timetable and crowding predictions for the Kelana Jaya Line, and the Rapid Rail network for other ways round.
+    <div className="flex flex-col items-center px-1 pb-3 pt-2 text-center sm:pt-10">
+      <span aria-hidden className="hero-gradient hidden h-16 w-16 items-center justify-center rounded-[22px] shadow-lg sm:flex"><Sparkle size={30} weight="fill" /></span>
+      <p className="text-[23px] font-extrabold leading-tight tracking-tight text-ink sm:mt-4 sm:text-[30px]">{hello}. Where are you going?</p>
+      <p className="mt-1 max-w-md text-[13.5px] leading-relaxed text-ink-2 sm:text-[14px]">
+        Ask about departures and predicted crowding on the Kelana Jaya Line, or alternative routes across the Rapid Rail network.
       </p>
-      <ul className="mt-6 grid w-full gap-2 sm:grid-cols-2">
+      <ul className="mt-4 grid w-full grid-cols-2 gap-2 sm:mt-6">
         {CAPABILITIES.map(({ icon: Icon, title, ask }) => (
           <li key={title}>
             <button type="button" disabled={!ready} onClick={() => onAsk(ask(homeName))}
-              className="card pressable flex h-full w-full items-start gap-3 p-3.5 text-left hover:border-accent disabled:opacity-50">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent"><Icon size={18} weight="fill" aria-hidden /></span>
+              className="card pressable flex h-full w-full flex-col items-start gap-2 p-3 text-left hover:border-accent disabled:opacity-50 sm:flex-row sm:gap-3 sm:p-3.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent sm:h-9 sm:w-9"><Icon size={17} weight="fill" aria-hidden /></span>
               <span className="min-w-0">
                 <span className="block text-[13px] font-bold text-ink">{title}</span>
-                <span className="block text-[13px] leading-snug text-ink-2">{ask(homeName)}</span>
+                <span className="block text-[12.5px] leading-snug text-ink-2 sm:text-[13px]">{ask(homeName)}</span>
               </span>
             </button>
           </li>
@@ -215,7 +241,7 @@ function Welcome({ onAsk, ready }: { onAsk: (q: string) => void; ready: boolean 
 }
 
 export function AssistantChat({ variant = "page", onClose, initial }: { variant?: "page" | "card"; onClose?: () => void; initial?: string | null }) {
-  const { turns, busy, enabled, check, send, clear } = useChat();
+  const { turns, busy, step, enabled, check, send, clear } = useChat();
   const { get, ready } = useToolCtx();
   const { ix } = useNetwork();
   const [text, setText] = useState("");
@@ -230,12 +256,19 @@ export function AssistantChat({ variant = "page", onClose, initial }: { variant?
   useEffect(() => {
     list.current?.lastElementChild?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [turns.length, busy]);
+  // A question in the link waits briefly for the rider's location, so "near me" is right.
+  const located = useNearby((s) => s.state !== "idle" && s.state !== "locating");
+  const [waited, setWaited] = useState(false);
   useEffect(() => {
-    if (initial && ready && enabled !== null && !sentInitial.current) {
+    const id = setTimeout(() => setWaited(true), 1500);
+    return () => clearTimeout(id);
+  }, []);
+  useEffect(() => {
+    if (initial && ready && enabled !== null && (located || waited) && !sentInitial.current) {
       sentInitial.current = true;
       send(initial, get);
     }
-  }, [initial, ready, enabled, send, get]);
+  }, [initial, ready, enabled, located, waited, send, get]);
 
   const submit = (q: string) => {
     if (!q.trim() || !ready) return;
@@ -250,7 +283,10 @@ export function AssistantChat({ variant = "page", onClose, initial }: { variant?
         <span aria-hidden className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft text-accent"><Sparkle size={18} weight="fill" /></span>
         <div className="min-w-0 flex-1">
           <h2 className="text-[17px] font-extrabold leading-tight text-ink">Ask AERA</h2>
-          <p className="text-[11px] text-ink-3">{enabled ? "Free AI model via OpenRouter, answering from the twin" : enabled === false ? "Quick answers from the twin (AI model not set up)" : "Connecting…"}</p>
+          <p className="flex items-center gap-1.5 text-[11px] text-ink-3">
+            <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${enabled ? "bg-good" : enabled === false ? "bg-warning" : "bg-rule-strong"}`} />
+            {enabled ? "AI travel assistant · Kelana Jaya Line" : enabled === false ? "Standard answers · AI assistant offline" : "Connecting…"}
+          </p>
         </div>
         {turns.length > 0 && (
           <button type="button" onClick={clear} aria-label="Clear the conversation" title="Clear" className="flex h-9 w-9 items-center justify-center rounded-full text-ink-3 hover:bg-surface-2">
@@ -268,22 +304,23 @@ export function AssistantChat({ variant = "page", onClose, initial }: { variant?
         {turns.length === 0 && (variant === "page" ? <Welcome onAsk={submit} ready={ready} /> : (
           <div className="pb-2">
             <p className="text-[14px] leading-relaxed text-ink-2">
-              Ask about the next train, how full a ride will be, or what to do when trains are not running. Answers use the timetable and predicted crowding.
+              Ask about the next train, how full a journey will be, or how to travel when service is disrupted. Answers are based on the timetable and AERA&apos;s crowding predictions.
             </p>
           </div>
         ))}
         <ol ref={list} aria-live="polite" className="flex flex-col gap-3 py-2">
           {turns.map((t) => <Bubble key={t.id} turn={t} names={names} />)}
           {busy && (
-            <li className="self-start rounded-2xl bg-surface-2 px-3.5 py-2.5 text-[13px] text-ink-3" aria-label="AERA is answering">
-              <span className="inline-flex gap-1"><span className="animate-pulse">●</span><span className="animate-pulse [animation-delay:150ms]">●</span><span className="animate-pulse [animation-delay:300ms]">●</span></span>
+            <li className="flex items-center gap-2.5 self-start rounded-2xl rounded-bl-md bg-surface-2 px-3.5 py-2.5 text-[13px] font-medium text-ink-2" role="status">
+              <span aria-hidden className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-accent/25 border-t-accent" />
+              <span>{step ?? "Thinking"}…</span>
             </li>
           )}
         </ol>
         {!busy && (turns.length > 0 || variant === "card") && (
-          <ul aria-label="Suggested questions" className="flex flex-wrap gap-2 pb-2">
+          <ul aria-label="Suggested questions" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible">
             {suggestions.map((s) => (
-              <li key={s}>
+              <li key={s} className="shrink-0 sm:shrink">
                 <button type="button" onClick={() => submit(s)} disabled={!ready}
                   className="pressable rounded-full border border-rule bg-white px-3 py-1.5 text-left text-[12px] font-semibold text-ink-2 hover:border-accent hover:text-accent disabled:opacity-50">
                   {s}
@@ -303,7 +340,7 @@ export function AssistantChat({ variant = "page", onClose, initial }: { variant?
               submit(text);
             }
           }}
-          placeholder={voice.listening ? "Listening…" : "Ask about a train or a ride"}
+          placeholder={voice.listening ? "Listening…" : "Ask about a train or journey"}
           className="max-h-28 min-h-11 flex-1 resize-none rounded-2xl border border-rule bg-surface-2 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-ink-3 focus:border-accent focus:bg-white focus:outline-none" />
         {voice.supported && (
           <button type="button" onClick={voice.toggle} aria-pressed={voice.listening} aria-label={voice.listening ? "Stop listening" : "Ask by voice"}
@@ -316,9 +353,8 @@ export function AssistantChat({ variant = "page", onClose, initial }: { variant?
           <PaperPlaneRight size={18} weight="fill" aria-hidden />
         </button>
       </form>
-      <p className="mt-1.5 text-[10px] leading-snug text-ink-3">
-        {enabled ? "Questions go to OpenRouter to be answered; do not include personal details. AI answers can be wrong. " : ""}
-        Times and crowding come from the timetable and a prediction, not live tracking.
+      <p className="mt-1.5 text-[10.5px] leading-snug text-ink-3">
+        {enabled ? "AI-generated answers may be inaccurate. " : ""}Crowding levels are predictions, not live counts. Please do not include personal information.
       </p>
     </section>
   );

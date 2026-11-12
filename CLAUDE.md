@@ -16,7 +16,9 @@ this file. Update "Current state" when facts change and add one entry to "Sessio
   (`docs/AERA_V4.md`, IDs `NETM-`, `ONB-`, `YOU-`, `STAT-`, `LOGIN-`, `ASK-06..08`) adds the
   network map, welcome, You and status pages. Revision 5 (`docs/AERA_V5.md`, IDs `NETC-`,
   `VIEW-`, `CTRL-`, `PLAN-`) adds crowding on every line, the rider/operator views and the
-  simpler Plan and Busy times pages, and holds the latest brainstorm backlog.
+  simpler Plan and Busy times pages. Revision 6 (`docs/AERA_V6.md`, IDs `LIVE-`, `OPS-`,
+  `LOGIN-02..03`, `ASK-09..11`) adds the answer-first Live page, the one-page Operations console and
+  the staff sign in, and holds the latest brainstorm backlog. `STAT-` is retired (no Status page).
   Delivery history and decisions: `docs/PLAN.md`. Run instructions: `README.md`. What is live vs
   predicted, and the data gaps: `docs/LIVE_DATA.md`.
 - Every chat ends checked: a Stop hook (`.claude/hooks/quality-check.sh`) runs `npm run check`
@@ -60,6 +62,12 @@ station-zone features are **parked** (team decision, 7 Oct 2026), not deleted.
   icon and label. Loads over 100% are shown as "over capacity".
 - The hourly shape comes from KTM Komuter taps smoothed with a 3-hour kernel (Komuter's
   sparse trains make raw hourly taps zigzag).
+- Live (user's choices, 13 Nov 2026): the map opens close on KLCC LRT and the Petronas Towers
+  (`OPENING` in `GeoMap.tsx`, phones 0.75 zoom further out). The glance card answers first and is
+  white and calm, colour only for crowding (no tinted panels): station near the rider via
+  `lib/nearby.ts`, else My station; direction tabs; the train as joined cars (`TrainCars`).
+  "Show on map" sets `glanceOnMap` in `lib/ui.ts` and the map follows that train. Phones: sheet at
+  ~470 px, map buttons are Map layers + Your train (+ compass when turned); You is the avatar.
 - Live page = full-screen 3D map (user's choice, 7 Oct 2026: no station list beside the map).
   Floating chrome like Mini Tokyo 3D: search + clock/service status top left, round map
   buttons right, crowding key bottom right. One card at a time (My station / station / train):
@@ -92,13 +100,15 @@ station-zone features are **parked** (team decision, 7 Oct 2026), not deleted.
 | GTFS importer | `backend/aera_twin/gtfs/importer.py` |
 | Timetable (Python twin of `frontend/lib/sim/trains.ts`) | `backend/aera_twin/timetable.py` |
 | Ridership model builder + tests | `backend/aera_twin/ridership/`, `backend/tests/test_ridership.py` |
+| Durable records: JSON snapshot (dev) or Postgres/Supabase (deployed) | `backend/aera_twin/{store,store_pg}.py`, `backend/db/` |
 | Sim clock, scenarios, disruptions (incl. `surge`) | `backend/aera_twin/simclock.py`, `simulator/scenarios.py`, `runtime.py` |
 | API + WebSocket `/api/ws` | `backend/aera_twin/api/routes.py` (`/api/lines/KJ/model` serves the model) |
 | Crowding engine + live feed | `frontend/lib/crowd/{model,levels,feed}.ts` |
 | Crowding UI kit (tag, meter, icon, car diagram, scale) | `frontend/components/Crowd.tsx` |
 | App shell (top bar, mobile tab bar) | `frontend/components/{TopBar,BottomNav,nav}.tsx` |
 | 3D train | `frontend/features/train3d/{Train3D,TrainView}.tsx` |
-| Live page (full-screen map, floating chrome, cards, sheet) | `frontend/features/live/{LiveView,MapChrome,StationCard,HomeStationCard,TrainDetail,Sheet}.tsx` |
+| Live page (full-screen map, floating chrome, cards, sheet) | `frontend/features/live/{LiveView,MapChrome,GlanceCard,StationCard,TrainDetail,Sheet}.tsx` |
+| Where the rider is (nearest station, asked once) | `frontend/lib/nearby.ts` |
 | Station photos (fetch script, credits) | `frontend/scripts/fetch-station-photos.mjs`, `frontend/lib/{photos.ts,stationPhotos.json}` |
 | 3D map geometry (viaduct, platforms, car poses) | `frontend/features/live/geo3d.ts`, drawn by `GeoMap.tsx` |
 | 3D map trains (three.js custom layer) and day/night palette | `frontend/features/live/{trainLayer,daylight}.ts`, `frontend/lib/sim/sun.ts` |
@@ -106,21 +116,23 @@ station-zone features are **parked** (team decision, 7 Oct 2026), not deleted.
 | Ride planner, insights, simulation admin | `frontend/features/{trip,insights,admin}/` |
 | Rapid Rail network builder (all lines, transfers) | `backend/aera_twin/gtfs/network.py` → `data/network/rapid.json` |
 | Route advisor (wait / go round / road) + option cards | `frontend/lib/advisor/`, `frontend/features/advisor/RouteOptions.tsx` |
-| Ask AERA: OpenRouter proxy, browser tools, quick answers, chat UI | `backend/aera_twin/assistant.py`, `frontend/lib/assistant/{tools,local,chat}.ts`, `frontend/features/assistant/` |
-| Line control (operators), admin users/levels/audit | `frontend/features/control/LineControl.tsx`, `frontend/features/admin/AdminPages.tsx`, `/api/control/*` |
+| Ask AERA: OpenRouter proxy (model fallbacks, key check `python -m aera_twin.assistant`), browser tools, quick answers, progress lines, chat UI | `backend/aera_twin/assistant.py`, `frontend/lib/assistant/{tools,local,chat,steps}.ts`, `frontend/features/assistant/` |
+| Operations (one screen for staff: figures, every train on a dark panel, needs attention, notices, next 2 h, extra train; Trends tab), admin | `frontend/features/control/LineControl.tsx`, `frontend/features/admin/AdminPages.tsx`, `/api/control/*` |
+| Staff sign in (split screen, keep me signed in, throttling) | `frontend/app/login/LoginForm.tsx`, `frontend/lib/session.ts`, `LoginThrottle` in `backend/aera_twin/api/routes.py` |
 | Every other line's trains: builder, browser sim, 3D geometry | `backend/aera_twin/gtfs/trains.py`, `frontend/lib/network/trains.ts`, `frontend/features/live/network3d.ts`, `features/network/NetTrainCard.tsx` |
 | Other lines' crowding: builder, browser lookups, every-line-now hook | `backend/aera_twin/ridership/network.py` → `data/models/network.json`, `frontend/lib/network/crowd.ts`, `frontend/features/insights/linesNow.ts` |
 | Station picker, search; operator alerts | `frontend/components/StationPicker.tsx`, `frontend/lib/stationSearch.ts`, `frontend/lib/control/alerts.ts` |
 | Rider/operator views, nav per view, view switch | `frontend/lib/view.ts`, `frontend/components/{nav.ts,ViewSwitch.tsx}` |
-| Control room (line strip), operator Analytics, rider Busy times | `frontend/features/control/{LineControl,LineStrip}.tsx`, `frontend/features/insights/{Analytics,Insights}.tsx` (`/control`, `/control/analytics`, `/insights`) |
+| Line strip, Trends (inside Operations) | `frontend/features/control/LineStrip.tsx`, `frontend/features/insights/Analytics.tsx` (`Trends`; `/control#trends`) |
 | Network map (poster data, layout, SVG map, page) | `frontend/lib/network/{schematic,layout}.ts`, `frontend/features/network/` |
-| Welcome, You, Service status pages | `frontend/features/{welcome,you,status}/` |
+| Settings (You) page | `frontend/features/you/` (Welcome and About were removed 13 Nov 2026; `/welcome`, `/about` redirect to `/`) |
 | Rider prefs (welcomed, saved rides, sharing), location sharer | `frontend/lib/prefs.ts`, `frontend/lib/crowd/share.tsx` |
 | Line as a list (map text equivalent) | `frontend/features/live/LineList.tsx` |
 | Map shortcuts, shortcuts panel, full screen; recent stations | `frontend/features/live/Shortcuts.tsx`, `frontend/lib/recent.ts` |
 | Live feed watcher (GTFS Realtime), track snapping | `backend/aera_twin/feeds/gtfs_rt.py`, `backend/aera_twin/geo.py` |
 | Rider reports/locations, train sensors, fusion | `backend/aera_twin/crowdsource/`, `/api/crowd/*`, `/api/ingest/train/{device}`, `frontend/lib/crowd/observed.ts` |
 | Edge sensor software (sender, YOLO counter, demo) | `edge/aera_edge/`, `edge/tests/` |
+| GPS crowdsensing research (design note + reference HMM matcher and simulator; not imported by the app) | `research/gps-crowdsensing/` |
 | Charts (SVG, hover, sr-only tables) | `frontend/features/charts/` |
 | Brand kit: Express logo files, mockups, guideline PDF (one generator) | `brand/` (`node brand/build.mjs`, also writes the app icons) |
 | Parked IoT/old UI and the old strip map (excluded from build) | `frontend/_parked/` |
@@ -130,15 +142,38 @@ Invariants:
 - Other lines' trains (`lib/network/trains.ts`) are display-only and timetable-driven, with a
   typical-week crowding lookup (`lib/network/crowd.ts`, no delays, no per-car split; ERL/BRT have
   none). Disruptions and the live crowding engine stay Kelana Jaya only. Their ids start `net:`.
+- Riders have four tabs (Live, Network, Plan, Ask); Busy times (`/insights`) was removed on
+  13 Nov 2026 and redirects to `/`. Settings (`/me`) sits behind the avatar.
+- Phone sheets (`features/live/Sheet.tsx`): one swipe up from peek carries on into scrolling, the
+  content is always scrollable, and a mouse wheel opens the sheet fully first. Keep that.
+- User-facing copy is product voice: no internal names ("twin service", "free model"), no
+  developer hints in errors. Proper capitalisation: a phrase after "·" or ":" starts with a
+  capital, and crowding level names are always capitalised (Quiet … Packed), never lowercased.
+- A page refresh on Live drops `?station=`/`?train=` and opens on KLCC; shared links still work.
+- The network map opens on central KL (KL Sentral, Masjid Jamek, KLCC) at `CENTRAL_K` so every
+  name fits (user's choice, 13 Nov 2026); it cannot zoom out past the whole network. After
+  "Show the whole map" it keeps the whole map fitted (resize, sheet height) until touched.
+  Station names come from `labelsAt` (min 8 px on screen, ranked; enlarged names never cover
+  another name, a line, a station marker or a badge, else they are dropped), not detail levels.
+- Station photo credits are not printed on cards (user's choice); they stay as an image title
+  and in `lib/stationPhotos.json`.
 - Two views: everyone gets the rider view; signed-in staff default to the operator view (navy
-  `--ops-*` chrome, own tabs) and switch with `ViewSwitch`. Add new pages to `navFor` per view.
+  `--ops-*` chrome, own tabs: Operations, Live map, Ask, Admin) and switch with `ViewSwitch`. Add
+  new pages to `navFor` per view. Staff features go on the Operations page, not new tabs; keep it
+  one screen (user's choice): anything deep goes in the Trends tab.
+- The rider's position never leaves the phone for "near you" (`lib/nearby.ts`); only the opt-in
+  location sharing (`lib/crowd/share.tsx`) sends anything. The browser asks once, on the first Live visit.
+- Ask AERA: the first round of each question must call a tool (`tool_choice: required`); keep it.
+  Tests that build `Env` must pass `openrouter_api_key=""`, since `backend/.env` now holds a real key.
 - The planner never suggests waiting more than 20 minutes (`MAX_WAIT_S` in `TripPlanner.tsx`).
 - The map's time is `now + ui.ahead` minutes (`lib/crowd/feed.ts`); cards stay at now. Rider
   reports are never blended into a look ahead.
 - On the 3D map other lines use `slim()` sizes (network3d.ts) so Kelana Jaya stays the hero.
 - 3D map sizes follow `dimsAt` (geo3d.ts): steady on screen from `STEADY_ZOOM` (13.5) up, fixed in
-  metres below it (shrink with the map, Mini Tokyo 3D's rule), with a ~3 px floor for trains. New
-  map geometry should use `dims.dp` (design pixel), not `dims.px`, or it clutters when zoomed out.
+  metres below it (shrink with the map, Mini Tokyo 3D's rule). Kelana Jaya geometry shrinks faster
+  below that (`HERO_SHRINK`) so zoomed out it is at most twice the other lines' width (user's
+  choice, 13 Nov 2026; tested in geo3d.test.ts), with a ~2 px floor for trains. New map geometry
+  should use `dims.dp` (design pixel), not `dims.px`, or it clutters when zoomed out.
 - The network map's station ids for Rapid lines are the GTFS ids; `lib/network/layout.test.ts`
   fails if a stop is added to `data/network/rapid.json` without a place on the map.
 - Network map coordinates are poster units (about one per poster pixel); line colours are the
@@ -158,6 +193,8 @@ Invariants:
 - Tests that start the app must pass `gtfs_rt_url=""` to `Env`, or they poll data.gov.my.
 - Sim-clock tests must pin the time (`clock.jump(...)`, `clock.pause()`): at night no trains run.
 - Raw rider device ids are never stored (daily-rotating HMAC pseudonyms); keep it that way.
+- Database tables stay in the `aera` schema (not exposed by Supabase's REST API), owned by the
+  `aera_backend` role; never put them in `public` or commit the role's password.
 
 ## Commands
 
@@ -215,6 +252,13 @@ Dev logins: admin@aera.dev / aera-admin, operator@aera.dev / aera-operator.
   recent stations in search, "Tour the line", trains-by-crowding bar. Checked in headless Chrome
   at 1440 px (zoom 10 to 17) and an emulated 390 px phone; 84 backend + 5 edge + 42 frontend
   tests, lint, typecheck and build passing.
+- Revision 6 (13 Nov 2026, `docs/AERA_V6.md`): answer-first Live (KLCC opening view, glance card
+  near you with joined-car train, follow on request, phone layers panel), Status page removed, Busy
+  times tab, one-screen Operations (figures, dark every-train panel, needs attention with
+  acknowledge, notices, 2-hour forecast, extra train, Trends tab, shift summary), new staff
+  sign in with throttling and keep me signed in, Ask AERA live on OpenRouter (key in `backend/.env`,
+  free-model fallbacks). Checked in headless Chrome at 1440 px and 390 px; 95 backend + 5 edge + 58
+  frontend tests, lint, typecheck and build passing. Not checked on a real phone.
 - Revision 5 (14 Oct 2026, `docs/AERA_V5.md`): typical crowding on 8 more lines, rider and
   operator views, Control room line strip, Analytics, rebuilt Plan and Busy times. Checked in
   headless Chrome at 1440 px and an emulated 390 px phone (no sideways scroll); 89 backend + 5
@@ -223,13 +267,77 @@ Dev logins: admin@aera.dev / aera-admin, operator@aera.dev / aera-operator.
   mockups and the 14-page `AERA_Brand_Guideline.pdf`, all from `node brand/build.mjs`.
 - Open decisions: crowding on roof/skirt vs whole-car tint; photo licences for the pitch
   video; TRAIN-04 beacons for delayed trains (feed has no per-train delay);
-  crowding thresholds/wording; per-car split is modelled not measured;
+  crowding thresholds/wording; per-car split is modelled not measured; free OpenRouter models
+  change often (re-check `DEFAULT_MODELS` if Ask falls back to quick answers);
   Komuter-shaped peaks may overstate LRT peaks; Supabase persistence and deployment
-  (Vercel/Render) not started.
+  (Vercel for `frontend/`, a long-running host for `backend/`) are next. Before going live: real
+  `AERA_JWT_SECRET`, real staff accounts instead of the `@aera.dev` seeds, `AERA_CORS_ORIGINS` set
+  to the site, Mapbox token restricted to the domain.
 
 ## Session log
 
 Newest first. One short entry per chat: date, what changed, anything left unfinished.
+
+- **2026-11-13** Postgres migration for deployment: `PgStore` (`backend/aera_twin/store_pg.py`)
+  keeps users, settings, devices, incidents and the audit log in Supabase when
+  `AERA_DATABASE_URL` is set (schema `aera`, `backend/db/schema.sql`, role `aera_backend` via
+  `backend/db/backend_role.sql`), writing changed rows on a background thread; JSON store
+  unchanged for dev/tests. `render.yaml` for the backend, `turbopack.root` for Vercel. Tested on a
+  local Postgres (3 store tests, opt-in via `AERA_TEST_DATABASE_URL`) and end to end with uvicorn.
+
+- **2026-11-13** Phone and polish pass on user request: search bar "nearest station" button fixed
+  (shared `useNearby`, spinner, messages that show without focus, https note, now on phones too);
+  Busy times page deleted (`/insights` redirects to `/`, phone tabs now four, planner keeps its
+  "usually quieter" tip); phone sheet scrolls in one swipe and with a wheel; network map opens on
+  the whole map on phones; Kelana Jaya Line slimmer when zoomed out (`HERO_SHRINK`); crowding
+  key's explanatory line removed; "Not in service" at night instead of "Good service · 0 trains".
+  Product copy: Ask AERA header and disclaimer, new About page (hero, figures, features, levels,
+  method, sources, privacy `#privacy`, team, non-affiliation footer), You rebuilt as grouped
+  Settings, sign-in/error/404 wording, Open Graph metadata (`NEXT_PUBLIC_SITE_URL`). Fixed
+  `test_simulator_fills_the_station` failing before 06:00 KL (sim clock now pinned to the fake
+  time). Checked in headless Chrome at 1440 px and 390 px; 95 backend + 5 edge + 59 frontend tests,
+  lint and typecheck passing. Not checked on a real phone.
+  Later the same chat, on feedback: Welcome and About pages deleted (redirect to `/`), sharing
+  error text hidden, capitalisation fixed across the app (level names, phrases after · and :),
+  refresh opens on KLCC, network map refits until touched (was fitted once at load), photo credit
+  line removed from station cards. Network page: disclaimers, "13 lines · 220 stations" and the
+  Timetable/Live crowding/Suspended chips removed (`DataChip` deleted), title "Klang Valley Rail
+  Network", lines grouped LRT/MRT/Monorail/KTM Komuter/Airport and BRT, Trains switch in the
+  panel; station names now show at every zoom (`labelsAt` in NetworkMap.tsx: at least 8 px,
+  ranked, overlaps dropped, edge names flipped inward), phone "whole map" button above the sheet.
+  Glance card's "trains running · most crowded stretch" row removed (phones); desktop clock card
+  and desktop clock card no longer show train counts, "Trains by crowding" or the busiest stretch
+  (Operations keeps the figures). The service line shows only news (disruption, notice, "Not in
+  service" at night); nothing when the line runs normally (no "Good service" dot).
+  Settings: footer line removed; More now has Plan a journey, Ask AERA, Network map. Pre-deploy
+  re-check: production build passes (15 routes), `turbopack.root` pinned to `frontend/`, every
+  page crawled at 1440/390 px signed out and as admin (no errors, no sideways scroll; Mapbox's
+  procedural-building tile 404s are Mapbox's own and harmless). `/network?station=KJ15` keeps its id.
+  Deployment notes for the user: backend (FastAPI, WebSocket, sim loop, `var/state.json`) cannot run
+  on Vercel; needs a long-running host plus Supabase Postgres for users/settings/audit/incidents.
+  Network map now opens zoomed on central KL (all names at full size) instead of the whole map;
+  zoom-out stops at the whole network.
+
+- **2026-11-13** Revision 6 on user request (`docs/AERA_V6.md`): Live opens on the next train near
+  the rider (location asked once; My station otherwise), flies close and follows it, glance card
+  with car strip; phone map buttons → layers panel. Status page deleted (redirects to `/`); Busy
+  times tab, You behind the avatar. Operations is one page for staff (Analytics folded in as
+  Trends). New split-screen sign in, login throttling, keep me signed in. OpenRouter key added to
+  `backend/.env` (git-ignored); model fallback chain, forced first tool call, low reasoning,
+  progress lines; `python -m aera_twin.assistant` checks the key. Open: real-phone check (GPS
+  prompt, performance), shared alert acknowledgements, the V6 backlog. The dev sim clock was moved
+  for checks and set back to real time.
+  Same day, on feedback: glance card redesigned without the yellow panel (white, joined-car train);
+  map opens on KLCC and follows a train only on request; Operations rebuilt as one simple screen
+  (dark "every train" panel, needs attention, notices, Trends tab); `research/gps-crowdsensing/`
+  design note + reference code (not wired in); README page table updated. Open: identity anchor
+  for crowd matching (aliasing), real-phone check.
+
+- **2026-11-13** Fixed a dev build error ("next/font/google queries have exactly one entry"):
+  Turbopack's cached Google Font CSS in `frontend/.next` was stale; `rm -rf frontend/.next` and
+  restart `npm run dev` fixes it (build passes). No code change. The `~$*.docx/.dotx` files in
+  `brand/word/` are Word lock files from an open document, not project files. Open: dropping the
+  `weight` list in `app/layout.tsx` (variable font) would make it less likely to recur.
 
 - **2026-10-19** Word report template (`brand/word/`): four border proposals, then four frame
   variants; user chose A1 plain frame. `build_word.py` writes `.dotx`, blank and sample `.docx`

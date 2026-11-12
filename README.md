@@ -4,28 +4,29 @@ A digital twin of the LRT Kelana Jaya Line that predicts how full every train is
 built from data.gov.my gate-tap ridership and the published timetable. Requirements live in
 [docs/AERA_BRS.md](docs/AERA_BRS.md), with the map-first experience in
 [docs/AERA_UX_V2.md](docs/AERA_UX_V2.md), and disruption help, the assistant and staff roles in
-[docs/AERA_V3.md](docs/AERA_V3.md), and the network map, welcome, You and status pages in
-[docs/AERA_V4.md](docs/AERA_V4.md); how each delivery maps onto them is in [docs/PLAN.md](docs/PLAN.md).
+[docs/AERA_V3.md](docs/AERA_V3.md), the network map, welcome and You pages in
+[docs/AERA_V4.md](docs/AERA_V4.md), every line's crowding and the two views in
+[docs/AERA_V5.md](docs/AERA_V5.md), and the near-you Live page, one-page Operations and staff
+sign in in [docs/AERA_V6.md](docs/AERA_V6.md); how each delivery maps onto them is in [docs/PLAN.md](docs/PLAN.md).
 
 | Page | What it answers |
 | --- | --- |
-| `/` Live | Full-screen 3D map of every train on every Klang Valley line; Kelana Jaya cars' roofs are coloured by their crowding. Search a station or tap one for its photo, next trains by car and advice; tap a train to follow it. `/?station=KJ15` and `/?train=…` open a card directly |
+| `/` Live | Opens close on KLCC and the Petronas Towers, with your next train first: the station near you (or My station), the next train each way and how full it is car by car; "Show on map" flies to that train and follows it. Every train on every Klang Valley line; tap a station or train for its card. `/?station=KJ15` and `/?train=…` open a card directly |
 | `/network` | The whole Klang Valley rail network drawn like the integrated transit map, with every line's trains running to their timetables (Kelana Jaya in its crowding colour); tap a station for its lines, times and walkways |
 | `/trip` | Which train from A to B is the calmest in the next hour? When the line is broken: other ways (wait, go round on other lines, bus or e-hailing) |
 | `/ask` | Ask AERA: a chat assistant that answers from the twin (on desktop it also opens as the map card) |
-| `/status` | Is my line running? Kelana Jaya disruptions and notices, every other line's frequency and hours, and what AERA can see |
-| `/me` | You: my station, saved rides, location sharing, and the pages that do not fit the phone tab bar |
-| `/welcome` | First-visit welcome: what AERA does, the crowding words, my station, location sharing |
-| `/insights` | How is the line doing right now, when is my ride calmer, which stretches are busiest? Charts under "Explore the data" |
-| `/control` | Line control for operators: disruption impact, send an extra train, notices to riders (staff only) |
+| `/me` | Settings (the avatar at the top): my station, saved journeys, crowd reporting, clearing data, staff sign in |
+| `/login` | Staff sign in (operators and admins) |
+| `/control` | Operations, one screen for staff: service state and figures, every train now, needs attention (incidents and alerts to acknowledge), notices to riders, the next two hours, an extra train with its relief, shift summary; a Trends tab for the charts |
 | `/admin` | Scenarios, clock and disruptions, users, crowding levels, audit log (admins only) |
 
 ```
-frontend/   Next.js 16 web app: live 3D map with station and train cards, ride planner, insights
+frontend/   Next.js 16 web app: live 3D map with station and train cards, ride planner, Ask AERA, Operations
 backend/    FastAPI twin service: timetable, crowding model builder, simulation clock, scenarios, API
 data/       Line timetable (GTFS), crowding model (data/models) and station definition files
 packages/contracts/   JSON schemas for MQTT payloads and station definitions
 docs/       BRS and build plan
+research/   Studies not wired into the app (GPS crowdsensing design and reference code)
 ```
 
 ## Run it locally
@@ -50,14 +51,17 @@ a month. Without a token, or if Mapbox refuses it, the map falls back to the fre
 with plain extruded buildings. Before deploying, restrict the token to your site's URL in the
 Mapbox account so nobody else can use up the free quota.
 
-Ask AERA uses a free AI model through [OpenRouter](https://openrouter.ai/keys). Put a key in
-`backend/.env` as `AERA_OPENROUTER_API_KEY=sk-or-...`; `AERA_OPENROUTER_MODEL` defaults to
-`openrouter/free`, which picks a free model that can call tools. The key never reaches the browser.
+Ask AERA uses free AI models through [OpenRouter](https://openrouter.ai/keys). Put a key in
+`backend/.env` as `AERA_OPENROUTER_API_KEY=sk-or-...` and check it with
+`cd backend && uv run python -m aera_twin.assistant`. `AERA_OPENROUTER_MODEL` is optional: a
+comma-separated list (first choice, then up to two fallbacks); empty uses the free models listed in
+`backend/aera_twin/assistant.py`, which OpenRouter tries in turn when one is busy. The key never
+reaches the browser.
 Free models have daily limits; without a key, or when the limit is reached, the assistant gives
 quick answers worked out in the browser from the same tools, so it still works on demo day.
 
 Staff sign in at `/login` with the development accounts (in development the login page also has
-one-click "Open AERA as Rider / Operator / Admin" buttons):
+one-click Operator and Admin demo buttons):
 
 | Account | Role | Password |
 | --- | --- | --- |
@@ -80,6 +84,19 @@ reports and sensors, live feed watcher, API), the edge sender tests and the fron
 positions match the twin service exactly, the crowding engine behaves as expected, and observed
 crowding blends into predictions. GitHub Actions (`.github/workflows/ci.yml`) also runs the
 production build.
+
+## Deployment
+
+| Part | Where | Notes |
+| --- | --- | --- |
+| Website (`frontend/`) | Vercel, root directory `frontend` | Env: `NEXT_PUBLIC_API_URL` (the backend URL), `NEXT_PUBLIC_MAPBOX_TOKEN`, `NEXT_PUBLIC_SITE_URL` |
+| Backend (`backend/`) | Render, from `render.yaml` | A long-running server (WebSocket, simulation loop), so not Vercel. Health check `/api/health` |
+| Database | Supabase Postgres, schema `aera` | `backend/db/schema.sql`, then `backend/db/backend_role.sql` with a generated password |
+
+The backend uses Postgres when `AERA_DATABASE_URL` is set (Supabase session pooler, role
+`aera_backend`), otherwise `backend/var/state.json`. Set `AERA_CORS_ORIGINS` to the website's
+address. Test the store against a database with
+`AERA_TEST_DATABASE_URL=postgresql://aera_backend:…@localhost/aera_test uv run pytest tests/test_store_pg.py`.
 
 ## Live data, rider reports and sensors
 
@@ -120,5 +137,5 @@ npm run lint          # ruff on backend and edge
 5. Sign in as the operator (`/login` › Operator). In Line control, preview and send an extra train,
    and publish a notice; it appears on the map at once.
 6. Open `/trip` from Taman Jaya to KL Sentral at 07:45 to see the calmest train recommended.
-7. Close on `/insights`: right now against a usual day, when your ride is calmer, the busiest
+7. Close on Operations › Trends (`/control#trends`): every line now, the week, the busiest
    stretches, and how the prediction was built.

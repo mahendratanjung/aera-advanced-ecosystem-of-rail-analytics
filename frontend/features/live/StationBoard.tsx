@@ -26,7 +26,7 @@ export function advice(deps: Departure[], t: number): string | null {
       .sort((a, b) => a.loadPct - b.loadPct)[0];
     if (better) {
       const wait = Math.max(1, Math.round((better.arrival - t) / 60));
-      return `Wait ${wait} min for the ${klTime(better.arrival * 1000)}. It should be ${crowdOf(better.loadPct).name.toLowerCase()} instead of ${lv.name.toLowerCase()}.`;
+      return `Wait ${wait} min for the ${klTime(better.arrival * 1000)}. It should be ${crowdOf(better.loadPct).name} instead of ${lv.name}.`;
     }
     return lv.level === 5 ? "Trains are packed for a while. You may need to let one go." : "Expect crowded trains for the next 10 minutes or so.";
   }

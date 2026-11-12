@@ -27,6 +27,8 @@ export interface ToolCtx {
   mult: number;
   role: AskRole;
   home: string | null;
+  /** The station nearest the rider, when the phone shared where it is (LIVE-01). */
+  near?: string | null;
   /** Notices operators have published to riders. */
   notices?: string[];
   /** Every other line's timetable and typical crowding (NETC-04), when loaded. */

@@ -12,6 +12,7 @@ dependencies = [
   "aiomqtt>=2.5",
   "httpx>=0.28",
   "gtfs-realtime-bindings>=3.0.0",
+  "psycopg[binary]>=3.2",
 ]
 
 [dependency-groups]

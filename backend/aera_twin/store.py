@@ -1,7 +1,8 @@
 """Durable records: settings, users, devices, incidents and the audit log.
 
 Delivery 1 keeps these in memory and snapshots them to ``var/state.json`` so a restart keeps
-configuration. The Supabase adapter replaces this class in the persistence step (§11.7).
+configuration. Deployed, :class:`aera_twin.store_pg.PgStore` keeps the same records in Postgres
+(Supabase) instead (§11.7).
 """
 
 from __future__ import annotations
@@ -116,6 +117,9 @@ class Store:
         tmp = self.path.with_suffix(".tmp")
         tmp.write_text(json.dumps(data, indent=1))
         os.replace(tmp, self.path)
+
+    def flush(self) -> None:
+        """Finish any pending write (the JSON store writes at once)."""
 
     def user_by_email(self, email: str) -> User | None:
         email = email.strip().lower()

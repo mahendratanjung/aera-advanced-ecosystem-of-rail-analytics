@@ -54,8 +54,19 @@ export function metresPerPixel(zoom: number, lat: number): number {
  */
 export const STEADY_ZOOM = 13.5;
 
-/** Smallest a train is drawn, in screen pixels: a dot that can still be seen and tapped. */
-const MIN_PX = { carWidth: 3.2, carHeight: 2.4, carLength: 3.2 };
+/** Smallest a train is drawn, in screen pixels: a dot that can still be seen. */
+const MIN_PX = { carWidth: 2.2, carHeight: 1.8, carLength: 2.6 };
+
+/**
+ * Below STEADY_ZOOM the Kelana Jaya geometry shrinks this much faster than the map (per zoom
+ * level, as a power of two), so a whole-line view shows it about as slim as the other lines
+ * (a little wider, as the line AERA predicts) instead of a band three times their width
+ * (user feedback, 13 Nov 2026). From STEADY_ZOOM up nothing changes.
+ */
+const HERO_SHRINK = 1.6;
+
+/** Narrowest the Kelana Jaya viaduct is drawn, half-width in screen pixels (other lines: 1.3). */
+const MIN_DECK_HALF_PX = 1.6;
 
 /** How much of the steady on-screen size is kept at a zoom: 1 from STEADY_ZOOM up, halving per zoom level below. */
 export function shrinkAt(zoom: number): number {
@@ -66,27 +77,31 @@ export function dimsAt(zoom: number, lat: number): Dims {
   const px = metresPerPixel(zoom, lat);
   /** Metres per "design pixel": a screen pixel down to STEADY_ZOOM, then fixed in metres. */
   const dp = px * shrinkAt(zoom);
-  const carWidth = Math.max(REAL.carWidth, 9 * dp, MIN_PX.carWidth * px);
-  const carLength = Math.max(REAL.carLength, 15 * dp, MIN_PX.carLength * px);
-  const trackOffset = carWidth * 0.62;
-  const deckHalf = trackOffset + carWidth * 0.62;
+  /** The same for the Kelana Jaya geometry, which shrinks faster when zoomed out (HERO_SHRINK). */
+  const s = 2 ** (Math.min(0, zoom - STEADY_ZOOM) * HERO_SHRINK);
+  const hp = px * s;
+  const design = Math.max(REAL.carWidth, 9 * hp);
+  const carWidth = Math.max(design, MIN_PX.carWidth * px);
+  const carLength = Math.max(REAL.carLength, 15 * hp, MIN_PX.carLength * px);
+  // Zoomed right out the two tracks close up, so the viaduct stays a slim line under the trains.
+  const trackOffset = Math.max(design * 0.62, 0.8 * px);
+  const deckHalf = Math.max(design * 1.24, MIN_DECK_HALF_PX * px);
   // Zoomed out a platform shrinks to a square mark just wider than the line, as a station
   // dot on a transit map, instead of a slab as long as a train.
-  const s = shrinkAt(zoom);
   const platformHalf = deckHalf + carWidth * 0.5 * s;
   return {
     px,
     dp,
     carLength,
-    carGap: Math.max(0.8, 0.6 * dp),
+    carGap: Math.max(0.8, 0.6 * hp),
     carWidth,
-    carHeight: Math.max(REAL.carHeight, 7 * dp, MIN_PX.carHeight * px),
+    carHeight: Math.max(REAL.carHeight, 7 * hp, MIN_PX.carHeight * px),
     trackOffset,
     deckHalf,
-    deckTop: Math.max(REAL.deck, 7 * dp),
-    deckDepth: Math.max(REAL.deckDepth, 2 * dp),
+    deckTop: Math.max(REAL.deck, 7 * hp),
+    deckDepth: Math.max(REAL.deckDepth, 2 * hp),
     platformHalf,
-    platformLength: Math.max(REAL.platform, 4 * carLength * s + 6 * dp, 2 * platformHalf),
+    platformLength: Math.max(REAL.platform, 4 * carLength * s + 6 * hp, 2 * platformHalf),
   };
 }
 
@@ -187,7 +202,7 @@ export function trackFeatures(line: LineData, dims: Dims): GeoJSON.FeatureCollec
   // Zoomed out the stripe widens to a little past the deck, so the line reads as a line in
   // its own colour rather than a grey band (Mini Tokyo 3D draws whole lines in line colour).
   const low = 1 - dims.dp / dims.px;
-  const stripeHalf = dims.carWidth * 0.18 + (dims.deckHalf * 1.2 - dims.carWidth * 0.18) * Math.min(1, low * 1.6);
+  const stripeHalf = dims.carWidth * 0.18 + (dims.deckHalf * 1.05 - dims.carWidth * 0.18) * Math.min(1, low * 1.6);
   const stripeH = stripeHeight(dims);
   const parts: [number, number, boolean][] = [[0, t0, false], [t1, end, false], [t0, t1, true]];
   return {

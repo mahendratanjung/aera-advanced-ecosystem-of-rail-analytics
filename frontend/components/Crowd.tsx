@@ -92,3 +92,34 @@ export function CrowdScale({ compact = false }: { compact?: boolean }) {
     </ol>
   );
 }
+
+/**
+ * The train as one row of four joined cars, front first, each filled with its crowding colour
+ * and level icon, named underneath; the car with the most room is called out (LIVE-02).
+ */
+export function TrainCars({ cars }: { cars: number[] }) {
+  const lv = cars.map((c) => crowdOf(c));
+  const spread = Math.max(...lv.map((x) => x.level)) !== Math.min(...lv.map((x) => x.level));
+  const best = spread ? cars.indexOf(Math.min(...cars)) : -1;
+  return (
+    <div role="img" aria-label={`Cars, front first: ${lv.map((x, i) => `car ${i + 1} ${x.name}`).join(", ")}`}>
+      <div aria-hidden className="flex h-10 gap-[3px]">
+        {lv.map((x, i) => (
+          <span key={i} className="flex flex-1 items-center justify-center"
+            style={{ background: crowdVar(x.level), borderRadius: i === 0 ? "18px 6px 6px 18px" : i === cars.length - 1 ? "6px 10px 10px 6px" : 6,
+              boxShadow: i === best ? "0 0 0 2px white, 0 0 0 4px var(--ink)" : undefined }}>
+            <CrowdIcon level={x.level} size={18} color={x.level === 2 ? crowdInkVar(2) : "#fff"} />
+          </span>
+        ))}
+      </div>
+      <div aria-hidden className="mt-1.5 flex gap-[3px]">
+        {lv.map((x, i) => (
+          <span key={i} className="min-w-0 flex-1 truncate text-center text-[11px] leading-tight">
+            <span className={`block font-semibold ${i === best ? "text-ink" : "text-ink-3"}`}>{i === 0 ? "Front" : `Car ${i + 1}`}</span>
+            <span className="block font-semibold" style={{ color: crowdInkVar(x.level) }}>{x.name}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -84,7 +84,7 @@ function otherLines(ctx: ToolCtx, word: string): LocalAnswer {
   const r = runTool("other_lines", all ? {} : { line: word }, ctx).result as { error?: string; time: string; lines: { line: string; most_trains?: string; fullest_train?: { crowding: string; between: string } }[] };
   if (r.error) return { text: r.error, cards: [] };
   const want = word === "mrt" ? r.lines.filter((l) => l.line.startsWith("MRT")) : /ktm|komuter/.test(word) ? r.lines.filter((l) => l.line.startsWith("KTM")) : r.lines;
-  const rows = want.filter((l) => l.most_trains).map((l) => `- **${l.line}**: mostly ${l.most_trains!.split(" (")[0].toLowerCase()}; fullest ${l.fullest_train!.crowding.split(" (")[0].toLowerCase()} between ${l.fullest_train!.between}`);
+  const rows = want.filter((l) => l.most_trains).map((l) => `- **${l.line}**: mostly ${l.most_trains!.split(" (")[0]}; fullest ${l.fullest_train!.crowding.split(" (")[0]} between ${l.fullest_train!.between}`);
   if (!rows.length) return { text: `No trains are running on those lines at ${r.time}.`, cards: [] };
   return { text: `At ${r.time}, trains usually carry this much (typical week, not live):\n${rows.join("\n")}`, cards: [] };
 }
@@ -95,7 +95,7 @@ function next(ctx: ToolCtx, id: string): LocalAnswer {
   if (res.error) return { text: res.error, cards: [] };
   const lines = res.directions.filter((d) => d.trains.length).map((d) => {
     const x = d.trains[0];
-    return `Towards ${d.towards}: ${x.in_min === 0 ? "now" : `in ${x.in_min} min`}, ${x.crowding.split(" (")[0].toLowerCase()}, board at car ${x.best_car}.`;
+    return `Towards ${d.towards}: ${x.in_min === 0 ? "Now" : `In ${x.in_min} min`}, ${x.crowding.split(" (")[0]}, board at car ${x.best_car}.`;
   });
   return { text: lines.length ? `At ${res.station}:\n${lines.map((l) => `- ${l}`).join("\n")}` : `No more trains at ${res.station} tonight.`, cards: r.card ? [r.card] : [] };
 }
@@ -107,7 +107,7 @@ function ride(ctx: ToolCtx, from: string, to: string): LocalAnswer {
   if (!res.recommended) return { text: res.hint ?? `No trains from ${res.from} to ${res.to} in the next hour.`, cards: [] };
   const b = res.recommended;
   const lead = b.is_next_train ? "Take the next train" : "Wait a little: a calmer train";
-  return { text: `${lead}, leaving ${res.from} at ${b.departs} and reaching ${res.to} at ${b.arrives}. It should be ${b.crowding.split(" (")[0].toLowerCase()} at its busiest.`, cards: r.card ? [r.card] : [] };
+  return { text: `${lead}, leaving ${res.from} at ${b.departs} and reaching ${res.to} at ${b.arrives}. It should be ${b.crowding.split(" (")[0]} at its busiest.`, cards: r.card ? [r.card] : [] };
 }
 
 function waysText(ctx: ToolCtx, from: string, to: string, r: { disruption: unknown; options: { title: string; arrive: string; minutes_from_now: number; crowding_on_kelana_jaya: string }[] }): string {
@@ -138,7 +138,7 @@ function status(ctx: ToolCtx): LocalAnswer {
     const d = r.disruptions[0];
     return { text: `${d.what} (towards ${d.direction}), ${d.until.includes(":") ? `until about ${d.until}` : "with no end time yet"}. Tell me where you are going and I will find other ways.`, cards: [] };
   }
-  return { text: `Good service at ${r.time}.${r.busiest_now ? ` The most crowded stretch is ${r.busiest_now.from} to ${r.busiest_now.to}, ${r.busiest_now.crowding.split(" (")[0].toLowerCase()}.` : ""}`, cards: [] };
+  return { text: `Good service at ${r.time}.${r.busiest_now ? ` The most crowded stretch is ${r.busiest_now.from} to ${r.busiest_now.to}, ${r.busiest_now.crowding.split(" (")[0]}.` : ""}`, cards: [] };
 }
 
 function overview(ctx: ToolCtx): LocalAnswer {

@@ -24,10 +24,15 @@ class Env(BaseSettings):
     mqtt_url: str = ""
     ingest_token: str = ""
     persist: bool = True
+    # Postgres (Supabase) for users, settings, incidents and the audit log. Empty keeps the
+    # JSON snapshot in var/state.json (local development and tests).
+    database_url: str = ""
     seed: int = 20261007
     # Ask AERA (OpenRouter). Leave the key empty to show the advisor's cards without a chatbot.
+    # The model is a comma-separated list (first choice, then up to two fallbacks); empty uses
+    # assistant.DEFAULT_MODELS.
     openrouter_api_key: str = ""
-    openrouter_model: str = "openrouter/free"
+    openrouter_model: str = ""
     # GTFS Realtime vehicle positions for the line. data.gov.my has none for Rapid Rail yet
     # (Oct 2026); the watcher keeps checking and shows trains from it once it exists.
     # Empty turns the watcher off.

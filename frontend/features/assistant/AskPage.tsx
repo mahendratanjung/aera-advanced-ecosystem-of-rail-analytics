@@ -25,13 +25,13 @@ function RightNow() {
   const name = line?.stations.find((s) => s.id === home)?.name ?? home;
   return (
     <aside aria-label="Right now" className="space-y-3">
-      <Link href="/status" className="card pressable flex items-center gap-3 p-4 hover:border-accent">
+      <Link href="/" className="card pressable flex items-center gap-3 p-4 hover:border-accent">
         {active.length === 0
           ? <CheckCircle size={22} weight="fill" className="text-good" aria-hidden />
           : <WarningOctagon size={22} weight="fill" className={broken ? "text-critical" : "text-serious"} aria-hidden />}
         <span className="min-w-0 flex-1">
           <span className="block text-[14px] font-bold text-ink">{active.length === 0 ? "Kelana Jaya Line: good service" : broken ? "Kelana Jaya Line: part not running" : "Kelana Jaya Line: delays"}</span>
-          <span className="block text-[12px] text-ink-3">Service status for every line</span>
+          <span className="block text-[12px] text-ink-3">View every train on the live map</span>
         </span>
         <Pulse size={18} className="text-ink-3" aria-hidden />
       </Link>
@@ -42,7 +42,7 @@ function RightNow() {
       </section>
       <p className="flex gap-2 px-1 text-[12px] leading-relaxed text-ink-3">
         <LockSimple size={15} className="mt-0.5 shrink-0" aria-hidden />
-        Ask AERA does not need your name or location. Do not type personal details: with the AI model on, questions go to OpenRouter.
+        <span>Ask AERA does not need your name or location. Questions are processed by our AI provider, so please do not include personal information.</span>
       </p>
     </aside>
   );
@@ -53,7 +53,7 @@ export function AskPage() {
   const q = useSearchParams().get("q");
   const wide = useMediaQuery("(min-width: 1024px)");
   return (
-    <main className="enter mx-auto flex h-[calc(100dvh-64px-76px-env(safe-area-inset-bottom))] max-w-6xl gap-8 px-4 pt-4 lg:h-[calc(100dvh-64px)] lg:pb-6 lg:pt-8">
+    <main className="enter mx-auto flex h-[calc(100dvh-56px-76px-env(safe-area-inset-bottom))] max-w-6xl gap-8 px-4 pb-2 pt-3 lg:h-[calc(100dvh-64px)] lg:pb-6 lg:pt-8">
       <div className="mx-auto flex min-w-0 max-w-2xl flex-1 flex-col">
         <AssistantChat variant="page" initial={q} />
       </div>

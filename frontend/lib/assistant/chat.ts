@@ -10,6 +10,7 @@
 import { create } from "zustand";
 import { ApiError, api } from "../api";
 import { localAnswer } from "./local";
+import { stepText } from "./steps";
 import { type Card, type ToolCtx, hm, runTool } from "./tools";
 
 interface ToolCall {
@@ -41,6 +42,8 @@ interface ChatState {
   turns: Turn[];
   wire: WireMsg[];
   busy: boolean;
+  /** What the assistant is doing right now, shown while it works ("Checking next trains…"). */
+  step: string | null;
   /** null until the server has said whether the model is set up. */
   enabled: boolean | null;
   model: string | null;
@@ -72,6 +75,7 @@ export const useChat = create<ChatState>((set, get) => ({
   turns: [],
   wire: [],
   busy: false,
+  step: null,
   enabled: null,
   model: null,
   check: async () => {
@@ -88,10 +92,10 @@ export const useChat = create<ChatState>((set, get) => ({
     const q = text.trim();
     const ctx = getCtx();
     if (!q || get().busy || !ctx) return;
-    set((s) => ({ busy: true, turns: [...s.turns, { id: nextId++, role: "user", text: q, cards: [] }] }));
+    set((s) => ({ busy: true, step: "Reading your question", turns: [...s.turns, { id: nextId++, role: "user", text: q, cards: [] }] }));
     const quick = (why: Turn["quick"]) => {
       const a = localAnswer(q, getCtx() ?? ctx);
-      set((s) => ({ busy: false, turns: [...s.turns, { id: nextId++, role: "assistant", text: a.text, cards: a.cards, quick: why }],
+      set((s) => ({ busy: false, step: null, turns: [...s.turns, { id: nextId++, role: "assistant", text: a.text, cards: a.cards, quick: why }],
         wire: recent([...s.wire, { role: "user", content: q }, { role: "assistant", content: a.text }]) }));
     };
     if (get().enabled === false) return quick("off");
@@ -103,7 +107,8 @@ export const useChat = create<ChatState>((set, get) => ({
         const c = getCtx() ?? ctx;
         const res = await api<{ message: WireMsg }>("/assistant", {
           method: "POST",
-          json: { messages: recent(wire), context: { role: c.role, sim_time: hm(c.t), my_station: c.home ? c.ix.stop[c.home]?.name : null } },
+          json: { messages: recent(wire), context: { role: c.role, sim_time: hm(c.t), my_station: c.home ? c.ix.stop[c.home]?.name : null,
+            near_station: c.near ? c.ix.stop[c.near]?.name ?? null : null } },
         });
         const msg = res.message;
         wire = [...wire, { role: "assistant", content: msg.content ?? "", tool_calls: msg.tool_calls ?? undefined }];
@@ -112,14 +117,17 @@ export const useChat = create<ChatState>((set, get) => ({
           if (!answer) return quick("error");
           // Keep only the last card of each kind, so a retried tool does not stack duplicates.
           const shown = cards.filter((x, i) => !cards.slice(i + 1).some((y) => y.kind === x.kind));
-          set((s) => ({ busy: false, wire: recent(wire), turns: [...s.turns, { id: nextId++, role: "assistant", text: answer, cards: shown }] }));
+          set((s) => ({ busy: false, step: null, wire: recent(wire), turns: [...s.turns, { id: nextId++, role: "assistant", text: answer, cards: shown }] }));
           return;
         }
         for (const call of msg.tool_calls) {
-          const out = runTool(call.function.name, parseArgs(call.function.arguments), getCtx() ?? ctx);
+          const args = parseArgs(call.function.arguments);
+          set({ step: stepText(call.function.name, args) });
+          const out = runTool(call.function.name, args, getCtx() ?? ctx);
           if (out.card) cards.push(out.card);
           wire.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(out.result) });
         }
+        set({ step: "Writing the answer" });
       }
     } catch (e) {
       const code = e instanceof ApiError ? e.status : 0;

@@ -1,5 +1,5 @@
 import {
-  ChartBar, ChatCircleDots, Clock, Gauge, Gear, MapPin, MapTrifold, NavigationArrow, Pulse, Train, UserCircle,
+  ChatCircleDots, Gauge, Gear, MapPin, MapTrifold, NavigationArrow, Train, UserCircle,
 } from "@phosphor-icons/react/dist/ssr";
 import type { View } from "@/lib/view";
 
@@ -13,26 +13,23 @@ const LIVE = { href: "/", label: "Live", icon: Train };
 const NETWORK = { href: "/network", label: "Network", icon: MapTrifold };
 const PLAN = { href: "/trip", label: "Plan", icon: NavigationArrow };
 const ASK = { href: "/ask", label: "Ask", icon: ChatCircleDots };
-const BUSY = { href: "/insights", label: "Busy times", icon: Clock };
-const STATUS = { href: "/status", label: "Status", icon: Pulse };
 export const YOU = { href: "/me", label: "You", icon: UserCircle };
 
-const CONTROL = { href: "/control", label: "Control", icon: Gauge };
-const MAP = { href: "/", label: "Map", icon: MapPin };
-const ANALYTICS = { href: "/control/analytics", label: "Analytics", icon: ChartBar };
+const OPS = { href: "/control", label: "Operations", icon: Gauge };
+const MAP = { href: "/", label: "Live map", icon: MapPin };
 const ADMIN = { href: "/admin", label: "Admin", icon: Gear };
 
 /**
- * The tabs for a view (VIEW-02). Riders: getting about (Live, Network, Plan, Busy times, Ask,
- * Status). Operators: running the line (Control, Map, Analytics, Network, Ask, Status, Admin).
- * Phones have room for five, the last always You, where the view switch and the rest live.
+ * The tabs for a view (VIEW-02, OPS-01). Riders: getting about (Live, Network, Plan,
+ * Ask); You sits behind the avatar at the top. Staff: one Operations page that holds everything
+ * needed to run the line, the live map, Ask and, for admins, Admin. Phones have room for five.
  */
 export function navFor(view: View, phone = false, admin = false): NavItem[] {
   if (view === "operator") {
-    if (phone) return [CONTROL, MAP, ANALYTICS, ASK, YOU];
-    return admin ? [CONTROL, MAP, ANALYTICS, NETWORK, ASK, STATUS, ADMIN] : [CONTROL, MAP, ANALYTICS, NETWORK, ASK, STATUS];
+    if (phone) return admin ? [OPS, { ...MAP, label: "Map" }, ASK, ADMIN, YOU] : [OPS, { ...MAP, label: "Map" }, ASK, YOU];
+    return admin ? [OPS, MAP, ASK, ADMIN] : [OPS, MAP, ASK];
   }
-  return phone ? [LIVE, NETWORK, PLAN, ASK, YOU] : [LIVE, NETWORK, PLAN, BUSY, ASK, STATUS];
+  return [LIVE, NETWORK, PLAN, ASK];
 }
 
 /** The item for this path: the longest href that matches, so /control/analytics is not also Control. */

@@ -47,10 +47,19 @@ LEVEL_WORDS = {"low": "clear", "moderate": "moderate", "busy": "busy", "crowded"
 TRAIN_TOPIC = "aera/v1/train/"
 
 
+def make_store(env: Env) -> Store:
+    """Postgres when AERA_DATABASE_URL is set (deployed), otherwise the JSON snapshot."""
+    if env.database_url and env.persist:
+        from aera_twin.store_pg import PgStore
+
+        return PgStore(env.database_url)
+    return Store(persist=env.persist)
+
+
 class Twin:
     def __init__(self, env: Env, store: Store | None = None, stations: dict[str, StationModel] | None = None):
         self.env = env
-        self.store = store or Store(persist=env.persist)
+        self.store = store or make_store(env)
         self.store.load()
         self.stations = stations if stations is not None else load_stations()
         line_ids = {st.d.line_id for st in self.stations.values()} or {"KJ"}
@@ -123,6 +132,7 @@ class Twin:
             await self.feed.stop()
         await self.bus.stop()
         self.store.save()
+        self.store.flush()
 
     async def _loop(self) -> None:
         while True:

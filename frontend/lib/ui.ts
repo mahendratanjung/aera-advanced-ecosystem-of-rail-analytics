@@ -52,6 +52,18 @@ interface UiState {
   aheadOpen: boolean;
   setAhead: (min: number) => void;
   setAheadOpen: (v: boolean) => void;
+  /**
+   * LIVE-01: what the live page shows when nothing is picked: the rider's station (near them, or
+   * My station) and the next train coming to it, which the map follows once the rider asks.
+   * `focusTick` changes when the rider asks to see that train again.
+   */
+  glanceStation: string | null;
+  glanceTrip: string | null;
+  /** The rider asked to see that train on the map (it is not followed until then). */
+  glanceOnMap: boolean;
+  focusTick: number;
+  setGlance: (station: string | null, trip: string | null) => void;
+  focusGlance: () => void;
 }
 
 /** The map switches a rider sets, kept in this browser between visits. */
@@ -104,6 +116,12 @@ export const useUi = create<UiState>((set) => ({
   // A tour starts from a clear map: no card selection pulling the camera elsewhere.
   setTouring: (v) => set(v ? { touring: true, tourAt: null, selectedStation: null, selectedTrain: null, cam: "free", asking: false, listing: false } : { touring: false, tourAt: null }),
   setTourAt: (id) => set({ tourAt: id }),
+  glanceStation: null,
+  glanceTrip: null,
+  glanceOnMap: false,
+  focusTick: 0,
+  setGlance: (glanceStation, glanceTrip) => set({ glanceStation, glanceTrip }),
+  focusGlance: () => set((s) => ({ focusTick: s.focusTick + 1, glanceOnMap: true, cam: s.glanceTrip ? "follow" : "free" })),
   ahead: 0,
   aheadOpen: false,
   setAhead: (min) => set({ ahead: Math.max(0, Math.min(MAX_AHEAD_MIN, Math.round(min))) }),

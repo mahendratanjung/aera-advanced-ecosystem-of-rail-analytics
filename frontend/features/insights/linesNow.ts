@@ -2,8 +2,8 @@
 
 /**
  * How full every line's trains are right now (NETC-03): the Kelana Jaya Line from the live
- * engine, the other lines from the typical-week network model. Shared by Busy times (riders)
- * and Control (operators).
+ * engine, the other lines from the typical-week network model. Used by Operations
+ * (operators).
  */
 
 import { useMemo } from "react";

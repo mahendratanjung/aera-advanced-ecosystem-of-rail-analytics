@@ -22,7 +22,7 @@ export function ConnectionBanner() {
   const status = useTwin((s) => s.status);
   const hasSnapshot = useTwin((s) => s.hasSnapshot);
   if (status === "live" || (status === "connecting" && !hasSnapshot)) return null;
-  const text = hasSnapshot ? "Reconnecting. Times shown are from the last update." : "The live service is not responding. Retrying.";
+  const text = hasSnapshot ? "Connection lost. Reconnecting; times shown are from the last update." : "Live service is unavailable. Reconnecting…";
   return (
     <div role="status" className="relative z-50 flex items-center justify-center gap-2 bg-highlight-soft px-4 py-2 text-[13px] font-medium text-[#9a3412]">
       <WifiSlash size={16} aria-hidden />

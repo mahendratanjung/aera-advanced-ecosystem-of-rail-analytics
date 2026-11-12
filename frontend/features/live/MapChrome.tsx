@@ -7,7 +7,7 @@
  */
 
 import {
-  ArrowsOutSimple, ChatCircleDots, ClockClockwise, Compass, CornersIn, CornersOut, Graph, Crosshair, Cube, Gear, Keyboard, ListBullets, Pause, Play, Stop, MagnifyingGlass, Megaphone, MapTrifold, Minus, Moon, Path, Plus, Subway, Sun, SunHorizon,
+  ArrowsOutSimple, ChatCircleDots, ClockClockwise, Compass, CornersIn, CornersOut, Graph, Crosshair, Cube, Gear, Keyboard, ListBullets, Pause, Play, Stop, MagnifyingGlass, Megaphone, MapTrifold, Minus, Moon, Path, Plus, Stack, Subway, Sun, SunHorizon,
   UserCircle, Warning, X,
 } from "@phosphor-icons/react/dist/ssr";
 import Link from "next/link";
@@ -22,6 +22,7 @@ import { CROWD, crowdOf } from "@/lib/crowd/levels";
 import { klDate, klTime } from "@/lib/format";
 import { useSimNow } from "@/lib/hooks";
 import { useHome } from "@/lib/home";
+import { nearestStation, useNearby } from "@/lib/nearby";
 import { recentStations, rememberStation } from "@/lib/recent";
 import { useSession } from "@/lib/session";
 import { daylight, sunPosition } from "@/lib/sim/sun";
@@ -47,8 +48,10 @@ export function distanceKm(aLat: number, aLon: number, bLat: number, bLon: numbe
   return Math.hypot(x, y) * 6371;
 }
 
-export function StationSearch({ line, onPick, className = "", leading }: {
+export function StationSearch({ line, onPick, className = "", leading, trailing }: {
   line: LineData; onPick: (id: string) => void; className?: string; leading?: ReactNode;
+  /** Shown at the end of the pill after "nearest station" (phones put You there). */
+  trailing?: ReactNode;
 }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
@@ -100,23 +103,41 @@ export function StationSearch({ line, onPick, className = "", leading }: {
     input.current?.blur();
   };
 
+  // "Nearest station" (FIND-02): uses the same position store as the glance card, so the
+  // browser is asked at most once, and says plainly why when no station can be picked.
+  const locState = useNearby((s) => s.state);
+  const [locating, setLocating] = useState(false);
   const nearMe = () => {
     setNote(null);
-    if (!navigator.geolocation) return setNote("Location is not available in this browser.");
-    navigator.geolocation.getCurrentPosition(
-      (p) => {
-        const near = [...line.stations].sort((a, b) =>
-          distanceKm(p.coords.latitude, p.coords.longitude, a.lat, a.lon) - distanceKm(p.coords.latitude, p.coords.longitude, b.lat, b.lon))[0];
-        const km = distanceKm(p.coords.latitude, p.coords.longitude, near.lat, near.lon);
-        if (km > 25) setNote("You are far from the Kelana Jaya Line, so no station was picked.");
-        else pick(near.id);
-      },
-      () => setNote("Location was not shared, so search by name instead."),
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 },
-    );
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      return setNote("Your browser only shares location over a secure (https) connection. Search by name instead.");
+    }
+    setLocating(true);
+    void useNearby.getState().locate(true);
   };
+  useEffect(() => {
+    if (!locating || locState === "locating" || locState === "idle") return;
+    setLocating(false);
+    const pos = useNearby.getState().pos;
+    if (locState === "found" && pos) {
+      const near = nearestStation(line.stations, pos);
+      if (!near || near.km > 25) setNote("You are more than 25 km from the Kelana Jaya Line, so no station was picked.");
+      else pick(near.station.id);
+    } else if (locState === "denied") {
+      setNote("Location access is off for this site. Turn it on in your browser settings, or search by name.");
+    } else {
+      setNote("Your location could not be found just now. Try again, or search by name.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locating, locState]);
+  // A note stays a few seconds, even when the search box is not focused.
+  useEffect(() => {
+    if (!note) return;
+    const id = setTimeout(() => setNote(null), 7000);
+    return () => clearTimeout(id);
+  }, [note]);
 
-  const show = open && (results.length > 0 || note);
+  const show = (open && results.length > 0) || !!note;
   return (
     <div className={`relative ${className}`}>
       {/* The ring goes round the whole pill rather than the bare input inside it. */}
@@ -127,7 +148,7 @@ export function StationSearch({ line, onPick, className = "", leading }: {
           ref={input}
           type="search"
           role="combobox"
-          aria-expanded={!!show}
+          aria-expanded={open && results.length > 0}
           aria-controls={listId}
           aria-autocomplete="list"
           aria-activedescendant={show && results[active] ? `${listId}-${results[active].id}` : undefined}
@@ -166,17 +187,22 @@ export function StationSearch({ line, onPick, className = "", leading }: {
             <X size={16} weight="bold" aria-hidden />
           </button>
         ) : (
-          <button type="button" onClick={nearMe} aria-label="Nearest station to me" title="Nearest station to me"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-accent hover:bg-accent-soft">
-            <Crosshair size={19} weight="bold" aria-hidden />
-          </button>
+          <>
+            <button type="button" onClick={nearMe} disabled={locating} aria-label="Find the nearest station to me" title="Nearest station to me"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-accent hover:bg-accent-soft disabled:opacity-70">
+              {locating
+                ? <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-accent/25 border-t-accent" />
+                : <Crosshair size={19} weight="bold" aria-hidden />}
+            </button>
+            {trailing}
+          </>
         )}
       </div>
       {show && (
         <div className={`absolute inset-x-0 top-13.5 z-30 overflow-hidden rounded-[18px] ${FLOAT}`}>
-          {note && <p className="px-4 py-3 text-[13px] text-ink-2">{note}</p>}
-          {!q && results.length > 0 && <p className="px-4 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-3">Your stations</p>}
-          <ul id={listId} role="listbox" aria-label={q ? "Stations" : "Your stations"}>
+          {note && <p role="status" className="px-4 py-3 text-[13px] leading-snug text-ink-2">{note}</p>}
+          {open && !q && results.length > 0 && <p className="px-4 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-3">Your stations</p>}
+          {open && <ul id={listId} role="listbox" aria-label={q ? "Stations" : "Your stations"}>
             {results.map((s, i) => (
               <li key={s.id} id={`${listId}-${s.id}`} role="option" aria-selected={i === active}
                 onMouseDown={(e) => {
@@ -195,7 +221,7 @@ export function StationSearch({ line, onPick, className = "", leading }: {
                 </span>
               </li>
             ))}
-          </ul>
+          </ul>}
         </div>
       )}
     </div>
@@ -289,19 +315,22 @@ function StatusLine({ line, compact = false }: { line: LineData; compact?: boole
   // Only disruptions in force now; scenario ones can stay listed after their end time.
   const issue = disruptions.find((d) => d.kind !== "insert" && d.start_ms <= now && (d.end_ms === null || d.end_ms > now));
   const notices = useTwin((s) => s.sim?.notices ?? NO_NOTICES);
-  const b = status?.busiest;
-  const goBusiest = () => {
-    if (!b) return;
-    mapApi.current?.showStretch(b.from, b.to);
-  };
+  // Riders see the service state only; train counts and the busiest stretch were removed
+  // (user's choice, 13 Nov 2026). Operations keeps those for staff.
   const blocking = issue && (issue.kind === "suspend" || issue.kind === "hold");
+  // When the line runs normally nothing is shown: a "Good service" dot did not tell riders
+  // anything (user feedback, 13 Nov 2026). Only news appears: a disruption, a notice, or no service.
+  const closed = !issue && status?.running === 0;
+  if (!issue && !notices.length && !closed) return null;
   if (compact) {
     return (
       <>
-      <button type="button" onClick={issue ? () => selectStation(issue.stop_id) : goBusiest}
+      <button type="button" onClick={issue ? () => selectStation(issue.stop_id) : undefined}
         className={`pressable flex h-9 min-w-0 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold ${FLOAT}`}>
-        {issue ? <Warning size={15} weight="fill" className="shrink-0 text-critical" aria-hidden /> : <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-good" />}
-        <span className="truncate text-ink">{issue ? disruptionText(issue, names) : notices[0] ? notices[0].text : b ? `Busiest: ${names[b.from]} → ${names[b.to]}` : "Good service"}</span>
+        {issue ? <Warning size={15} weight="fill" className="shrink-0 text-critical" aria-hidden />
+          : notices[0] ? <Megaphone size={15} weight="fill" className="shrink-0 text-accent" aria-hidden />
+          : <Moon size={15} weight="fill" className="shrink-0 text-ink-3" aria-hidden />}
+        <span className="truncate text-ink">{issue ? disruptionText(issue, names) : notices[0] ? notices[0].text : "No trains running now"}</span>
       </button>
       {blocking && <AskWhatToDo issue={issue} names={names} compact />}
       </>
@@ -309,7 +338,7 @@ function StatusLine({ line, compact = false }: { line: LineData; compact?: boole
   }
   const ask = blocking ? <AskWhatToDo issue={issue} names={names} /> : null;
   return (
-    <div className="border-t border-rule pt-2.5">
+    <div className="mt-2.5 border-t border-rule pt-2.5">
       {issue ? (
         <button type="button" onClick={() => selectStation(issue.stop_id)} className="flex w-full items-start gap-2 text-left text-[13px]">
           <Warning size={17} weight="fill" className="mt-px shrink-0 text-critical" aria-hidden />
@@ -317,11 +346,11 @@ function StatusLine({ line, compact = false }: { line: LineData; compact?: boole
         </button>
       ) : null}
       {ask}
-      {issue ? null : (
+      {closed && (
         <p className="flex items-center gap-2 text-[13px]">
-          <span aria-hidden className="h-2 w-2 rounded-full bg-good" />
-          <span className="font-bold text-ink">Good service</span>
-          {status && <span className="text-ink-3">· <span className="num">{status.running}</span> trains running</span>}
+          <Moon size={15} weight="fill" className="shrink-0 text-ink-3" aria-hidden />
+          <span className="font-bold text-ink">Not in service</span>
+          <span className="text-ink-3">· Trains resume in the morning</span>
         </p>
       )}
       {notices.map((n) => (
@@ -331,43 +360,6 @@ function StatusLine({ line, compact = false }: { line: LineData; compact?: boole
           <span><span className="font-bold">Notice</span> <span className="text-ink-2">{n.text}</span></span>
         </p>
       ))}
-      {status && status.running > 0 && <LineGlance levels={status.levels} running={status.running} />}
-      {b && (
-        <button type="button" onClick={goBusiest} title="Show this stretch on the map"
-          className="pressable mt-2 flex w-full items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-left hover:bg-surface-3">
-          <span className="min-w-0 flex-1">
-            <span className="block text-[11px] font-semibold text-ink-3">Most crowded now</span>
-            <span className="block truncate text-[13px] font-bold text-ink">{names[b.from]} → {names[b.to]}</span>
-          </span>
-          <CrowdTag loadPct={b.load} size="sm" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-/** How many trains are at each crowding level right now, as one stacked bar. */
-function LineGlance({ levels, running }: { levels: number[]; running: number }) {
-  const full = levels[3] + levels[4];
-  return (
-    <div className="mt-2.5">
-      <div className="flex items-baseline justify-between gap-2 text-[11px]">
-        <span className="font-semibold text-ink-3">Trains by crowding</span>
-        <span className="font-semibold text-ink-2">{full ? <><span className="num">{full}</span> crowded or packed</> : "None crowded"}</span>
-      </div>
-      <div role="img" aria-label={CROWD.map((c, i) => `${levels[i]} ${c.name}`).join(", ")} className="mt-1 flex h-2 gap-0.5 overflow-hidden rounded-full">
-        {CROWD.map((c, i) => levels[i] > 0 && (
-          <span key={c.level} title={`${levels[i]} ${c.name}`} className="h-full first:rounded-l-full last:rounded-r-full" style={{ flexGrow: levels[i] / running, background: `var(--crowd-${c.level})` }} />
-        ))}
-      </div>
-      {/* Each level has its own icon, so the counts read without colour or names. */}
-      <ul aria-hidden className="mt-1.5 flex flex-wrap gap-x-3 text-[11px]">
-        {CROWD.map((c, i) => levels[i] > 0 && (
-          <li key={c.level} title={c.name} className="flex items-center gap-1">
-            <CrowdIcon level={c.level} size={12} /><span className="num font-bold text-ink-2">{levels[i]}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
@@ -387,7 +379,7 @@ export function ClockCard({ line }: { line: LineData }) {
           </p>
         </div>
       </div>
-      <div className="mt-2.5"><StatusLine line={line} /></div>
+      <StatusLine line={line} />
     </section>
   );
 }
@@ -447,7 +439,7 @@ export function AheadBar() {
       <div className="flex items-center gap-2">
         <ClockClockwise size={18} weight="bold" className="shrink-0 text-accent" aria-hidden />
         <p className="min-w-0 flex-1 text-[13px] font-bold text-ink" aria-live="polite">
-          {ahead ? <>Showing <span className="num">{klTime(at)}</span> <span className="font-semibold text-ink-3">· in {ahead} min, predicted</span></> : "Now. Slide to see the next 2 hours"}
+          {ahead ? <>Showing <span className="num">{klTime(at)}</span> <span className="font-semibold text-ink-3">· In {ahead} min, predicted</span></> : "Now. Slide to see the next 2 hours"}
         </p>
         <button type="button" onClick={() => {
           if (playing) return setPlaying(false);
@@ -619,7 +611,6 @@ export function CrowdKey({ onClose }: { onClose?: () => void }) {
           <li key={s.level}><CrowdTag loadPct={s.from + 0.1} size="sm" /></li>
         ))}
       </ul>
-      <p className="mt-1.5 text-[11px] text-ink-3">Each car&apos;s roof shows its own level. The band on the track shows the train on, or next on, each stretch; station names show the next train leaving.</p>
     </section>
   );
 }
@@ -658,8 +649,95 @@ export function NavPill() {
 
 export function BrandPill() {
   return (
-    <Link href="/about" aria-label="About AERA" className={`flex h-12 shrink-0 items-center rounded-full px-3 ${FLOAT}`}>
+    <span className={`flex h-12 shrink-0 items-center rounded-full px-3 ${FLOAT}`}>
       <Logo />
-    </Link>
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------- phone controls (LIVE-03)
+
+/**
+ * Phones: two buttons instead of a column of eleven. "Your train" brings the camera back to the
+ * train the card is about; "Map layers" opens one labelled panel with every switch. The compass
+ * only shows when the map is turned.
+ */
+export function PhoneMapButtons({ bearing, layersOpen, onLayers }: { bearing: number; layersOpen: boolean; onLayers: () => void }) {
+  const focusGlance = useUi((s) => s.focusGlance);
+  const glanceTrip = useUi((s) => s.glanceTrip);
+  const glanceStation = useUi((s) => s.glanceStation);
+  return (
+    <div className="flex flex-col gap-2.5">
+      <Group>
+        <RoundButton label="Map layers and options" pressed={layersOpen} onClick={onLayers}><Stack size={20} weight="bold" aria-hidden /></RoundButton>
+      </Group>
+      {(glanceTrip || glanceStation) && (
+        <Group>
+          <RoundButton label={glanceTrip ? "Show your train" : "Show your station"} onClick={() => {
+            const ui = useUi.getState();
+            if (ui.selectedStation || ui.selectedTrain) ui.selectStation(null);
+            focusGlance();
+          }}><Crosshair size={20} weight="bold" aria-hidden /></RoundButton>
+        </Group>
+      )}
+      {Math.abs(bearing) > 2 && (
+        <Group>
+          <RoundButton label="Point north" onClick={() => mapApi.current?.resetNorth()}>
+            <Compass size={21} weight="bold" aria-hidden style={{ transform: `rotate(${-bearing - 45}deg)` }} />
+          </RoundButton>
+        </Group>
+      )}
+    </div>
+  );
+}
+
+function LayerRow({ icon, label, note, on, onClick }: { icon: ReactNode; label: string; note?: string; on?: boolean; onClick: () => void }) {
+  const toggle = on !== undefined;
+  return (
+    <li>
+      <button type="button" onClick={onClick} role={toggle ? "switch" : undefined} aria-checked={toggle ? on : undefined}
+        className="pressable flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-surface-2">
+        <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${on ? "bg-accent text-white" : "bg-surface-2 text-ink-2"}`}>{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-semibold text-ink">{label}</span>
+          {note && <span className="block text-[11.5px] leading-snug text-ink-3">{note}</span>}
+        </span>
+        {toggle && (
+          <span aria-hidden className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${on ? "bg-accent" : "bg-rule-strong"}`}>
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${on ? "translate-x-4.5" : "translate-x-0.5"}`} />
+          </span>
+        )}
+      </button>
+    </li>
+  );
+}
+
+/** Every map switch with a name and a line on what it does (phones). */
+export function LayersPanel({ onClose, keyOpen, onKey }: { onClose: () => void; keyOpen: boolean; onKey: () => void }) {
+  const { is3d, underground, liveSky, setIs3d, setUnderground, setLiveSky, crowdLayer, setCrowdLayer, setListing, otherLines, setOtherLines, aheadOpen, setAheadOpen } = useUi();
+  const close = (fn: () => void) => () => {
+    fn();
+    onClose();
+  };
+  return (
+    <section aria-label="Map layers" className={`enter max-h-[min(70dvh,560px)] overflow-y-auto overscroll-contain rounded-[20px] p-2 ${FLOAT}`}>
+      <div className="flex items-center justify-between px-2 pb-1 pt-1">
+        <h2 className="text-[15px] font-extrabold text-ink">Map</h2>
+        <button type="button" onClick={onClose} aria-label="Close map layers" className="flex h-8 w-8 items-center justify-center rounded-full text-ink-3 hover:bg-surface-2">
+          <X size={16} weight="bold" aria-hidden />
+        </button>
+      </div>
+      <ul>
+        <LayerRow icon={<Path size={18} weight="bold" aria-hidden />} label="Crowding on the track" note="Colour each stretch by its train" on={crowdLayer} onClick={() => setCrowdLayer(!crowdLayer)} />
+        <LayerRow icon={<CrowdIcon level={3} size={18} color="currentColor" />} label="Crowding key" note="What the five colours mean" on={keyOpen} onClick={close(onKey)} />
+        <LayerRow icon={<ClockClockwise size={18} weight="bold" aria-hidden />} label="Crowding ahead" note="Slide through the next 2 hours" on={aheadOpen} onClick={close(() => setAheadOpen(!aheadOpen))} />
+        <LayerRow icon={<Graph size={18} weight="bold" aria-hidden />} label="Every line" note="MRT, LRT, Monorail and KTM trains" on={otherLines} onClick={() => setOtherLines(!otherLines)} />
+        <LayerRow icon={<Cube size={18} weight="bold" aria-hidden />} label="3D buildings and tilt" on={is3d} onClick={() => setIs3d(!is3d)} />
+        <LayerRow icon={<Subway size={18} weight="bold" aria-hidden />} label="Underground view" note="See the trains in the tunnel" on={underground} onClick={() => setUnderground(!underground)} />
+        <LayerRow icon={<SunHorizon size={18} weight="bold" aria-hidden />} label="Light follows the clock" note="Dusk and night on the map" on={liveSky} onClick={() => setLiveSky(!liveSky)} />
+        <LayerRow icon={<ArrowsOutSimple size={18} weight="bold" aria-hidden />} label="Show the whole line" onClick={close(() => mapApi.current?.wholeLine())} />
+        <LayerRow icon={<ListBullets size={18} weight="bold" aria-hidden />} label="Line as a list" note="Every station and train, as text" onClick={close(() => setListing(true))} />
+      </ul>
+    </section>
   );
 }

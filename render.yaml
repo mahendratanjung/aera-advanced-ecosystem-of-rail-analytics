@@ -1,0 +1,30 @@
+# Render blueprint for the AERA backend (FastAPI twin service). The website is on Vercel
+# (frontend/), the database on Supabase (backend/db/schema.sql). Secrets marked sync: false are
+# entered in the Render dashboard when the blueprint is created; they are never committed.
+services:
+  - type: web
+    name: aera-api
+    runtime: python
+    region: singapore
+    plan: free
+    rootDir: backend
+    buildCommand: pip install uv && uv sync --frozen --no-dev
+    startCommand: uv run --no-sync uvicorn aera_twin.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: AERA_JWT_SECRET
+        generateValue: true
+      - key: AERA_INGEST_TOKEN
+        generateValue: true
+      - key: AERA_DATABASE_URL
+        sync: false
+      - key: AERA_CORS_ORIGINS
+        sync: false
+      - key: AERA_ADMIN_PASSWORD
+        sync: false
+      - key: AERA_OPERATOR_PASSWORD
+        sync: false
+      - key: AERA_OPENROUTER_API_KEY
+        sync: false

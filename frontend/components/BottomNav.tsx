@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "@/lib/session";
 import { useView } from "@/lib/view";
 import { activeHref, navFor } from "./nav";
 
@@ -13,9 +14,10 @@ import { activeHref, navFor } from "./nav";
 export function BottomNav() {
   const path = usePathname();
   const view = useView();
-  if (path.startsWith("/welcome")) return null;
+  const user = useSession((s) => s.user);
+  if (path.startsWith("/login")) return null;
   const ops = view === "operator";
-  const items = navFor(view, true);
+  const items = navFor(view, true, user?.role === "admin");
   const active = activeHref(path, items);
   return (
     <nav aria-label="Main" className={`safe-bottom fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-md lg:hidden ${ops ? "border-ops-2 bg-ops/95" : "border-rule bg-white/92"}`}>

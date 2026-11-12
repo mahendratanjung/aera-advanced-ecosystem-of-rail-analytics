@@ -48,11 +48,11 @@ export function lineAlerts(engine: CrowdEngine, line: LineData, trains: RunningT
     const to = `To ${d.headsign}`;
     const trip = tr.run.trip.id;
     if (tr.loadPct >= PACKED) {
-      out.push({ kind: "packed", severity: 3, trip, title: `${to}: packed leaving ${here}`, detail: `${Math.round(tr.loadPct)}% of capacity. Riders may be left on the platform; consider an extra train.` });
+      out.push({ kind: "packed", severity: 3, trip, title: `${to}: Packed leaving ${here}`, detail: `${Math.round(tr.loadPct)}% of capacity. Riders may be left on the platform; consider an extra train.` });
     } else {
       for (let j = k + 1; j < Math.min(k + 1 + AHEAD_STOPS, tr.run.legs.length); j++) {
         if (tr.run.legs[j] >= PACKED) {
-          out.push({ kind: "ahead", severity: 2, trip, title: `${to}: packed from ${names[d.stops[j].station_id]}`,
+          out.push({ kind: "ahead", severity: 2, trip, title: `${to}: Packed from ${names[d.stops[j].station_id]}`,
             detail: `Now at ${here}; ${j - k} ${j - k === 1 ? "stop" : "stops"} until it is full.` });
           break;
         }
@@ -83,7 +83,7 @@ export function lineAlerts(engine: CrowdEngine, line: LineData, trains: RunningT
     }
   }
   for (const o of others) {
-    if (o.max >= PACKED) out.push({ kind: "other", severity: 1, title: `${o.name}: usually packed now`, detail: `Between ${o.from} and ${o.to}, from the typical week.` });
+    if (o.max >= PACKED) out.push({ kind: "other", severity: 1, title: `${o.name}: Usually packed now`, detail: `Between ${o.from} and ${o.to}, from the typical week.` });
   }
   return out.sort((a, b) => b.severity - a.severity);
 }

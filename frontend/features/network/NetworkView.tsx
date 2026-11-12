@@ -14,7 +14,7 @@ import {
 import Link from "next/link";
 import { type ReactNode, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { CarDiagram, CrowdTag } from "@/components/Crowd";
-import { DataChip, LineBadge } from "@/components/LineBadge";
+import { LineBadge } from "@/components/LineBadge";
 import { StationCode } from "@/components/StationCode";
 import { FLOAT } from "@/features/live/MapChrome";
 import { Sheet } from "@/features/live/Sheet";
@@ -34,7 +34,6 @@ import { NO_DISRUPTIONS, useTwin } from "@/lib/store";
 import type { LineData } from "@/lib/types";
 import { type Inset, type MapHandle, NetworkMap } from "./NetworkMap";
 
-const STATION_COUNT = new Set(layout().places.map((p) => p.key)).size;
 
 function lineOfPlace(p: Place): LineDef[] {
   const out: LineDef[] = [];
@@ -111,64 +110,73 @@ function NetworkSearch({ lay, onPick, className = "" }: { lay: Layout; onPick: (
 
 // ---------------------------------------------------------------- the line list (legend)
 
+/** The line list, grouped by service as on the operators' own maps. */
+const GROUPS: { title: string; modes: LineDef["mode"][] }[] = [
+  { title: "LRT", modes: ["LRT"] },
+  { title: "MRT", modes: ["MRT"] },
+  { title: "Monorail", modes: ["Monorail"] },
+  { title: "KTM Komuter", modes: ["KTM Komuter", "KTM"] },
+  { title: "Airport and BRT", modes: ["ERL", "BRT"] },
+];
+
+const shortName = (l: LineDef) => l.name.replace(/ Line$/, "").replace(/^(LRT|MRT|KTM|KL|BRT) /, "").split(" – ")[0];
+
 function LinesPanel({ focusLine, onFocus, trainsOn, onTrains }: { focusLine: string | null; onFocus: (id: string | null) => void; trainsOn: boolean; onTrains: (v: boolean) => void }) {
   return (
     <div>
-      <h2 className="text-[19px] font-extrabold leading-tight tracking-tight text-ink">Klang Valley rail network</h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-ink-2">
-        {LINES.length} lines and {STATION_COUNT} stations, drawn like the integrated transit map. Every train runs to its timetable, coloured by how full it is predicted to be (ERL and BRT, with no public ridership, in their line colour).
-      </p>
-      <ul className="mt-3 space-y-1" aria-label="Lines">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[19px] font-extrabold leading-tight tracking-tight text-ink">Klang Valley Rail Network</h2>
+        <button type="button" role="switch" aria-checked={trainsOn} onClick={() => onTrains(!trainsOn)}
+          className="pressable flex shrink-0 items-center gap-2 rounded-full py-1 pl-2.5 pr-1 text-[12.5px] font-semibold text-ink-2 hover:bg-surface-2">
+          <Train size={15} weight="fill" className={trainsOn ? "text-accent" : "text-ink-3"} aria-hidden />Trains
+          <span aria-hidden className={`relative h-5 w-9 rounded-full transition-colors ${trainsOn ? "bg-accent" : "bg-rule-strong"}`}>
+            <span className={`absolute left-0 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${trainsOn ? "translate-x-4.5" : "translate-x-0.5"}`} />
+          </span>
+        </button>
+      </div>
+      {/* Phones: every line in one swipeable row, visible at the sheet's first height. */}
+      <ul aria-label="Highlight a line" className="-mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:hidden">
         {LINES.map((l) => {
           const on = focusLine === l.id;
           return (
-            <li key={l.id}>
-              <button type="button" aria-pressed={on} onClick={() => onFocus(on ? null : l.id)}
-                className={`pressable flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left ${on ? "bg-accent-soft" : "hover:bg-surface-2"}`}>
-                <LineBadge line={l} size={26} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13.5px] font-semibold leading-snug text-ink">{l.name}</span>
-                  <span className="block text-[11px] text-ink-3">{l.operator}</span>
-                </span>
-                <DataChip data={l.data} />
+            <li key={l.id} className="shrink-0">
+              <button type="button" aria-pressed={on} aria-label={l.name} onClick={() => onFocus(on ? null : l.id)}
+                className={`pressable flex items-center gap-1.5 rounded-full border py-1 pl-1 pr-3 text-[12.5px] font-semibold ${on ? "border-accent bg-accent-soft text-accent" : "border-rule bg-white text-ink-2"}`}>
+                <LineBadge line={l} size={24} />{shortName(l)}
               </button>
             </li>
           );
         })}
       </ul>
-      <label className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-surface-2 px-3 py-2.5 text-[13px] font-semibold text-ink">
-        <span className="flex items-center gap-2"><Train size={17} weight="fill" className="text-line" aria-hidden />Show live trains</span>
-        <input type="checkbox" checked={trainsOn} onChange={(e) => onTrains(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
-      </label>
-      <MapKey />
+      <div className="mt-4 space-y-4">
+        {GROUPS.map((g) => {
+          const lines = LINES.filter((l) => g.modes.includes(l.mode));
+          if (!lines.length) return null;
+          return (
+            <section key={g.title} aria-label={g.title}>
+              <h3 className="mb-1 px-2 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-3">{g.title}</h3>
+              <ul className="space-y-0.5">
+                {lines.map((l) => {
+                  const on = focusLine === l.id;
+                  return (
+                    <li key={l.id}>
+                      <button type="button" aria-pressed={on} onClick={() => onFocus(on ? null : l.id)}
+                        className={`pressable flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left ${on ? "bg-accent-soft" : "hover:bg-surface-2"}`}>
+                        <LineBadge line={l} size={26} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13.5px] font-semibold leading-snug text-ink">{l.name}</span>
+                          <span className="block text-[11.5px] text-ink-3">{l.operator}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
     </div>
-  );
-}
-
-function MapKey() {
-  return (
-    <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[12px] text-ink-2">
-      <div className="flex items-center gap-2">
-        <svg width="26" height="12" aria-hidden><rect x="1" y="1" width="24" height="10" rx="5" fill="white" stroke="var(--net-ink)" strokeWidth="1.4" /></svg>
-        <dt>Interchange</dt>
-      </div>
-      <div className="flex items-center gap-2">
-        <svg width="26" height="12" aria-hidden><line x1="2" y1="6" x2="24" y2="6" stroke="var(--net-link)" strokeWidth="3" strokeLinecap="round" /></svg>
-        <dt>Walkway to another line</dt>
-      </div>
-      <div className="flex items-center gap-2">
-        <svg width="26" height="12" aria-hidden><circle cx="13" cy="6" r="5" fill="var(--crowd-2)" stroke="white" strokeWidth="1.5" /></svg>
-        <dt>Train, by crowding</dt>
-      </div>
-      <div className="flex items-center gap-2">
-        <svg width="26" height="12" aria-hidden><circle cx="13" cy="6" r="4.3" fill="var(--line-kg)" stroke="white" strokeWidth="1.5" /></svg>
-        <dt>Train without crowding data (ERL, BRT)</dt>
-      </div>
-      <div className="flex items-center gap-2">
-        <svg width="26" height="12" aria-hidden><line x1="2" y1="6" x2="24" y2="6" stroke="var(--line-kj)" strokeWidth="4" /><line x1="3" y1="6" x2="23" y2="6" stroke="white" strokeWidth="1.5" strokeDasharray="2 2" /></svg>
-        <dt>No trains for now</dt>
-      </div>
-    </dl>
   );
 }
 
@@ -318,7 +326,6 @@ function PlacePanel({ place, lay, engine, line, onClose, onPick }: {
             <div className="flex items-center gap-2">
               <LineBadge line={s.line} size={22} />
               <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-ink">{s.line.name}</span>
-              <DataChip data={s.line.data} />
             </div>
             <div className="mt-2">
               {s.line.id === "KJ" && engine && line ? (
@@ -432,19 +439,21 @@ function TrainPanel({ tripId, engine, line, onClose }: { tripId: string; engine:
 
 // ---------------------------------------------------------------- page
 
-function MapControls({ map, trainsOn, onTrains, vertical = true }: { map: React.RefObject<MapHandle | null>; trainsOn: boolean; onTrains: () => void; vertical?: boolean }) {
+function MapControls({ map, vertical = true, touch = false }: { map: React.RefObject<MapHandle | null>; vertical?: boolean; touch?: boolean }) {
   const btn = `pressable flex h-11 w-11 items-center justify-center rounded-full text-ink-2 hover:text-ink ${FLOAT}`;
   return (
     <div className={`flex gap-2 ${vertical ? "flex-col" : ""}`}>
-      <button type="button" className={btn} aria-label="Zoom in" onClick={() => map.current?.zoom(1.6)}><Plus size={18} weight="bold" aria-hidden /></button>
-      <button type="button" className={btn} aria-label="Zoom out" onClick={() => map.current?.zoom(1 / 1.6)}><Minus size={18} weight="bold" aria-hidden /></button>
+      {/* Phones pinch to zoom, so they only get the whole map. Trains switch on in the panel. */}
+      {!touch && <button type="button" className={btn} aria-label="Zoom in" onClick={() => map.current?.zoom(1.6)}><Plus size={18} weight="bold" aria-hidden /></button>}
+      {!touch && <button type="button" className={btn} aria-label="Zoom out" onClick={() => map.current?.zoom(1 / 1.6)}><Minus size={18} weight="bold" aria-hidden /></button>}
       <button type="button" className={btn} aria-label="Show the whole map" onClick={() => map.current?.fit()}><ArrowsOut size={18} weight="bold" aria-hidden /></button>
-      <button type="button" className={`${btn} ${trainsOn ? "!text-line" : ""}`} aria-pressed={trainsOn} aria-label="Live trains" onClick={onTrains}>
-        <Train size={18} weight={trainsOn ? "fill" : "regular"} aria-hidden />
-      </button>
     </div>
   );
 }
+
+/** First zoom: station names (4.2 map units) come out at about 8 px on phones and 10.5 px on
+ * wider screens, so all of them fit at their own size. */
+const CENTRAL_K = { phone: 2, wide: 2.5 };
 
 export function NetworkView() {
   const lay = layout();
@@ -464,8 +473,10 @@ export function NetworkView() {
     if (engine) attachEngine(engine);
   }, [engine]);
 
-  // Restore the selection from the link, and choose the first view: the whole map on wide
-  // screens, central Kuala Lumpur on phones (the whole poster is too small to read there).
+  // Restore the selection from the link, and choose the first view: central Kuala Lumpur
+  // (KL Sentral, Masjid Jamek, KLCC) at a zoom where every station name fits at its own size
+  // (user's choice, 13 Nov 2026: the whole map left too many names out). "Show the whole map"
+  // zooms out.
   useEffect(() => {
     if (restored.current) return;
     restored.current = true;
@@ -478,14 +489,18 @@ export function NetworkView() {
     if (ln && lay.line[ln]) setFocusLine(ln);
     if (tr) setTrain(tr);
     const phone = !window.matchMedia("(min-width: 1024px)").matches;
-    setStart(place ? { at: place.center, k: phone ? 2.2 : 2.6 } : phone ? { at: [372, 400], k: 1.45 } : null);
+    const core = ["KJ15", "KJ13", "KJ10"].map((id) => lay.placeOf[id]?.center).filter((c): c is [number, number] => !!c);
+    const centre: [number, number] = core.length ? [core.reduce((a, c) => a + c[0], 0) / core.length, core.reduce((a, c) => a + c[1], 0) / core.length] : [372, 400];
+    setStart(place ? { at: place.center, k: phone ? 2.2 : 2.6 } : { at: centre, k: phone ? CENTRAL_K.phone : CENTRAL_K.wide });
   }, [lay]);
 
   useEffect(() => {
     if (!restored.current) return;
     const place = selected ? lay.places.find((p) => p.key === selected) : null;
     const q = new URLSearchParams();
-    if (place) q.set("station", place.stations[0].id);
+    // Keep the station id the link used when it belongs to this place (KJ15, not K1-09).
+    const was = new URLSearchParams(window.location.search).get("station");
+    if (place) q.set("station", was && place.stations.some((x) => x.id === was) ? was : place.stations[0].id);
     else if (train) q.set("train", train);
     if (focusLine) q.set("line", focusLine);
     const s = q.toString() ? `?${q}` : "";
@@ -529,11 +544,11 @@ export function NetworkView() {
     <LinesPanel focusLine={focusLine} onFocus={setFocusLine} trainsOn={trainsOn} onTrains={setTrainsOn} />
   );
   const cardKey = train ? `t:${train}` : place ? `s:${place.key}` : "lines";
-  const inset: Inset = wide ? { top: 16, left: 416, right: 72, bottom: 34 } : { top: 72, left: 8, right: 60, bottom: sheetH + 8 };
+  const inset: Inset = wide ? { top: 16, left: 416, right: 72, bottom: 34 } : { top: 68, left: 6, right: 6, bottom: sheetH + 6 };
 
   return (
-    <div className="fixed inset-x-0 top-16 bottom-[calc(70px+env(safe-area-inset-bottom))] overflow-hidden bg-[var(--net-paper)] lg:bottom-0">
-      <h1 className="sr-only">Klang Valley rail network map</h1>
+    <div className="fixed inset-x-0 top-14 bottom-[calc(70px+env(safe-area-inset-bottom))] lg:top-16 overflow-hidden bg-[var(--net-paper)] lg:bottom-0">
+      <h1 className="sr-only">Klang Valley Rail Network map</h1>
       {start !== undefined && (
         <NetworkMap ref={map} lay={lay} focusLine={focusLine} selected={selected} onSelect={onSelect} selectedTrain={train} onTrain={onTrain}
           engine={engine} line={line} net={net} showTrains={trainsOn} inset={inset} start={start} />
@@ -548,17 +563,15 @@ export function NetworkView() {
             </section>
           </div>
           <div className="absolute right-4 top-1/2 z-10 -translate-y-1/2">
-            <MapControls map={map} trainsOn={trainsOn} onTrains={() => setTrainsOn(!trainsOn)} />
+            <MapControls map={map} />
           </div>
-          <p className="pointer-events-none absolute bottom-3 right-4 z-10 rounded-full bg-white/85 px-2.5 py-1 text-[10.5px] text-ink-3">
-            Layout after the Klang Valley Integrated Transit Map (APAD, Rapid KL). Not an official map.
-          </p>
         </>
       ) : (
         <>
           <div className="absolute inset-x-3 top-3 z-20"><NetworkSearch lay={lay} onPick={pick} /></div>
-          <div className="absolute right-3 top-18 z-10"><MapControls map={map} trainsOn={trainsOn} onTrains={() => setTrainsOn(!trainsOn)} /></div>
-          <Sheet peek={train ? 250 : place ? 300 : 210} label="Details" onHeight={setSheetH} resetKey={cardKey}>
+          {/* Bottom right, just above the panel, where the map leaves a clear corner. */}
+          <div className="absolute right-3 z-10" style={{ bottom: sheetH + 12 }}><MapControls touch map={map} /></div>
+          <Sheet peek={train ? 250 : place ? 300 : 136} label="Details" onHeight={setSheetH} resetKey={cardKey}>
             <div key={cardKey} className="enter">{card}</div>
           </Sheet>
         </>

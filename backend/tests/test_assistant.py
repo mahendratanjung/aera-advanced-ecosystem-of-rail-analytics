@@ -1,16 +1,18 @@
 """Ask AERA proxy: the key stays on the server, the tools are fixed, failures fall back cleanly."""
 
+import asyncio
 import json
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from aera_twin.assistant import TOOLS, Assistant, AssistantError, RateLimiter
+from aera_twin.assistant import TOOLS, AskBody, Assistant, AssistantError, RateLimiter
 from aera_twin.config import Env
 from aera_twin.main import create_app
 
-ENV = Env(persist=False, jwt_secret="test-secret-that-is-at-least-32-bytes", mqtt_url="", sim_start="now", gtfs_rt_url="")
+ENV = Env(persist=False, jwt_secret="test-secret-that-is-at-least-32-bytes", mqtt_url="", sim_start="now", gtfs_rt_url="",
+          openrouter_api_key="")
 ASK = {"messages": [{"role": "user", "content": "The line is down, how do I get to KLCC?"}],
        "context": {"role": "rider", "sim_time": "18:10"}}
 
@@ -55,6 +57,30 @@ def test_request_carries_key_fixed_prompt_and_tools_and_returns_tool_calls(app):
     assert "18:10" in sent["messages"][0]["content"]
     assert [t["function"]["name"] for t in sent["tools"]] == [t["function"]["name"] for t in TOOLS]
     assert "sk-test" not in r.text
+    assert sent["model"] == "m:free" and "models" not in sent
+    assert sent["tool_choice"] == "required"  # a new question always starts from a tool
+
+
+def test_fallback_models_are_sent_in_order_and_answers_after_tools_are_free():
+    transport, seen = mock(lambda r: httpx.Response(200, json={"model": "b:free", "choices": [
+        {"message": {"role": "assistant", "content": "  Take the 08:17.  ", "tool_calls": None}}]}))
+    a = Assistant("sk-test", "a:free, b:free,c:free,d:free", transport=transport)
+    assert a.models == ["a:free", "b:free", "c:free"] and a.model == "a:free"
+    body = {"messages": [*ASK["messages"],
+                         {"role": "assistant", "content": None, "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "service_status", "arguments": "{}"}}]},
+                         {"role": "tool", "tool_call_id": "c1", "content": "{}"}]}
+    out = asyncio.run(a.ask(AskBody(**body), "x"))
+    sent = json.loads(seen[0].content)
+    assert sent["models"] == ["a:free", "b:free", "c:free"] and "model" not in sent
+    assert sent["tool_choice"] == "auto"
+    assert out["message"]["content"] == "Take the 08:17." and out["model"] == "b:free"
+
+
+def test_a_refused_key_reads_as_not_set_up():
+    a = Assistant("sk-bad", "m", transport=mock(lambda r: httpx.Response(401, json={}))[0])
+    with pytest.raises(AssistantError) as e:
+        asyncio.run(a.ask(AskBody(**ASK), "x"))
+    assert e.value.code == "no_key"
 
 
 def test_upstream_limits_and_errors_become_clear_codes(app):
@@ -75,3 +101,10 @@ def test_rate_limiter_caps_each_address_per_minute():
         rl.check("a", now=1002)
     rl.check("b", now=1002)
     rl.check("a", now=1070)
+
+
+def test_a_reply_cut_off_by_the_cap_ends_on_a_whole_sentence():
+    text = "Take the **08:17**, it is Busy. Car 4 has the most room. The 08:21 is"
+    transport, _ = mock(lambda r: httpx.Response(200, json={"choices": [{"finish_reason": "length", "message": {"content": text}}]}))
+    out = asyncio.run(Assistant("sk-test", "m", transport=transport).ask(AskBody(**ASK), "x"))
+    assert out["message"]["content"] == "Take the **08:17**, it is Busy. Car 4 has the most room."
