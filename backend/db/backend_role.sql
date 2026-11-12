@@ -4,7 +4,8 @@
 --   postgresql://aera_backend.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
 
 -- create role aera_backend login password '<generated>';
-grant usage on schema aera to aera_backend;
+-- create rights are needed to take ownership of the tables
+grant usage, create on schema aera to aera_backend;
 alter table aera.settings  owner to aera_backend;
 alter table aera.users     owner to aera_backend;
 alter table aera.devices   owner to aera_backend;
