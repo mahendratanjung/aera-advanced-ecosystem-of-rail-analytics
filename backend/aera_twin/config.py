@@ -20,6 +20,9 @@ class Env(BaseSettings):
     admin_password: str = "aera-admin"
     operator_password: str = "aera-operator"
     cors_origins: str = "http://localhost:3000"
+    # Also allowed: every address of the Vercel project (aera-rail.vercel.app, aera-sepia.vercel.app
+    # and each deployment's own aera-<hash>-<team>.vercel.app, which Vercel's preview screenshots use).
+    cors_origin_regex: str = r"^https://aera(-[a-z0-9-]+)?\.vercel\.app$"
     sim_start: str = "now"
     mqtt_url: str = ""
     ingest_token: str = ""

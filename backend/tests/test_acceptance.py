@@ -283,3 +283,14 @@ def test_admin_moves_crowding_levels_and_riders_get_them(api):
     assert bad.status_code == 422
     ok = api.put("/api/admin/settings", json={**s, "crowd_levels": [25, 55, 80, 100]}, headers=h)
     assert ok.status_code == 200 and ok.json()["crowd_levels"] == [25, 55, 80, 100]
+
+
+def test_cors_allows_every_address_of_the_vercel_project():
+    from aera_twin.config import Env as E
+    app = create_app(E(persist=False, jwt_secret="x" * 40, mqtt_url="", gtfs_rt_url="", openrouter_api_key="", cors_origins="https://aera-rail.vercel.app"))
+    with TestClient(app) as c:
+        for origin, ok in [("https://aera-rail.vercel.app", True), ("https://aera-sepia.vercel.app", True),
+                           ("https://aera-r5zdxvcdo-mahendratanjungs-projects.vercel.app", True),
+                           ("https://evil.example.com", False), ("https://notaera.vercel.app", False)]:
+            r = c.get("/api/health", headers={"Origin": origin})
+            assert (r.headers.get("access-control-allow-origin") == origin) is ok, origin

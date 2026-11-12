@@ -296,6 +296,10 @@ Newest first. One short entry per chat: date, what changed, anything left unfini
   setup, restrict the Mapbox token to the site.
   Map now defaults to always daylight (`liveSky: false`, saved switches key `aera.mapview.2`):
   the dawn/dusk presets tinted the map yellow; "Light follows the clock" is still a toggle.
+  Vercel's deployment screenshot showed "Live service data is temporarily unavailable": the
+  backend's CORS list missed `aera-sepia.vercel.app` and per-deployment URLs. Now
+  `AERA_CORS_ORIGIN_REGEX` (default `^https://aera(-[a-z0-9-]+)?\.vercel\.app$`) allows them, and
+  `api()` retries reads for up to 90 s while Render's free instance wakes (no instant error).
 
 - **2026-11-13** Phone and polish pass on user request: search bar "nearest station" button fixed
   (shared `useNearby`, spinner, messages that show without focus, https note, now on phones too);
