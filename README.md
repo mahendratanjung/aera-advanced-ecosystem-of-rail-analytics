@@ -87,6 +87,9 @@ production build.
 
 ## Deployment
 
+Live: **https://aera-rail.vercel.app** (website) · https://aera-api-xuoz.onrender.com/api/health (backend).
+Pushing to `main` redeploys both.
+
 | Part | Where | Notes |
 | --- | --- | --- |
 | Website (`frontend/`) | Vercel, root directory `frontend` | Env: `NEXT_PUBLIC_API_URL` (the backend URL), `NEXT_PUBLIC_MAPBOX_TOKEN`, `NEXT_PUBLIC_SITE_URL` |

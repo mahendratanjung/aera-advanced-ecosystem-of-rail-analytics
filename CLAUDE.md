@@ -269,10 +269,9 @@ Dev logins: admin@aera.dev / aera-admin, operator@aera.dev / aera-operator.
   video; TRAIN-04 beacons for delayed trains (feed has no per-train delay);
   crowding thresholds/wording; per-car split is modelled not measured; free OpenRouter models
   change often (re-check `DEFAULT_MODELS` if Ask falls back to quick answers);
-  Komuter-shaped peaks may overstate LRT peaks; Supabase persistence and deployment
-  (Vercel for `frontend/`, a long-running host for `backend/`) are next. Before going live: real
-  `AERA_JWT_SECRET`, real staff accounts instead of the `@aera.dev` seeds, `AERA_CORS_ORIGINS` set
-  to the site, Mapbox token restricted to the domain.
+  Komuter-shaped peaks may overstate LRT peaks. Deployed (see the 13 Nov session log): Vercel,
+  Render free plan (sleeps after 15 min idle), Supabase. Still to do: restrict the Mapbox token to
+  aera-rail.vercel.app; rider reports and phone locations are still in memory (lost on restart).
 
 ## Session log
 
@@ -284,6 +283,14 @@ Newest first. One short entry per chat: date, what changed, anything left unfini
   `backend/db/backend_role.sql`), writing changed rows on a background thread; JSON store
   unchanged for dev/tests. `render.yaml` for the backend, `turbopack.root` for Vercel. Tested on a
   local Postgres (3 store tests, opt-in via `AERA_TEST_DATABASE_URL`) and end to end with uvicorn.
+  Deployed and checked end to end the same day: website https://aera-rail.vercel.app (Vercel
+  project `aera`, root `frontend`, team "mahendratanjung's projects"), backend
+  https://aera-api-xuoz.onrender.com (Render `aera-api`, free plan, Singapore, auto-deploys from
+  `main`), database Supabase project `aera` (ref `gnmtgczwcuujwjwqrsup`, Singapore; pooler
+  `aws-1-ap-southeast-1.pooler.supabase.com:5432`, user `aera_backend.gnmtgczwcuujwjwqrsup`).
+  Live checks passed: map on desktop/phone with the WebSocket, staff sign in with the production
+  password (demo passwords rejected), Ask AERA answering via OpenRouter, a settings change saved to
+  Supabase. Secrets (DB password, JWT, staff passwords, OpenRouter key) live only in Render's env.
 
 - **2026-11-13** Phone and polish pass on user request: search bar "nearest station" button fixed
   (shared `useNearby`, spinner, messages that show without focus, https note, now on phones too);
