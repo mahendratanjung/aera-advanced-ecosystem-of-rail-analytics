@@ -291,6 +291,8 @@ Newest first. One short entry per chat: date, what changed, anything left unfini
   Live checks passed: map on desktop/phone with the WebSocket, staff sign in with the production
   password (demo passwords rejected), Ask AERA answering via OpenRouter, a settings change saved to
   Supabase. Secrets (DB password, JWT, staff passwords, OpenRouter key) live only in Render's env.
+  README has the live URLs. Open for the user: revoke the Render API key and Vercel token used for
+  setup, restrict the Mapbox token to the site.
 
 - **2026-11-13** Phone and polish pass on user request: search bar "nearest station" button fixed
   (shared `useNearby`, spinner, messages that show without focus, https note, now on phones too);
